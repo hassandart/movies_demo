@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:movies_demo/presentation/pages/ecran_saisie.dart';
 import 'package:provider/provider.dart';
 import 'package:movies_demo/presentation/providers/mission_provider.dart';
+
+import 'ecran_saisie.dart';
 
 class EcranAccueilDashboard extends StatelessWidget {
   const EcranAccueilDashboard({super.key});
@@ -13,214 +14,305 @@ class EcranAccueilDashboard extends StatelessWidget {
     final int nbAnomalies = mission?.anomaliesDepart.length ?? 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          "Tableau de bord",
-          style: TextStyle(
-            color: Color(0xFF2C2670),
-            fontWeight: FontWeight.w800,
-            fontSize: 22,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+      backgroundColor: const Color(0xFF2980B9), // Fond bleu de l'image
+      body: SafeArea(
+        top: false, // Permet au bloc blanc de monter tout en haut
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ----------------------------------------------------
+              // LE BLOC BLANC DU HAUT (FORME ASYMÉTRIQUE)
+              // ----------------------------------------------------
+              Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(40),
+                    bottomRight: Radius.circular(80),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
+                padding: const EdgeInsets.only(
+                  top: 60,
+                  left: 24,
+                  right: 24,
+                  bottom: 30,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(
-                      Icons.wifi_tethering_rounded,
-                      size: 14,
-                      color: Colors.green,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Barre supérieure
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Icon(
+                          Icons.menu_rounded,
+                          size: 28,
+                          color: Color(0xFF2C3E50),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            "Local OK",
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 4),
-                    Text(
-                      "Local OK",
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(height: 25),
+
+                    // Titre principal et bouton d'action
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "My Task",
+                          style: TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF2C3E50),
+                          ),
+                        ),
+                        FloatingActionButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EcranSaisiePremium(),
+                            ),
+                          ),
+                          backgroundColor: const Color(0xFF2980B9),
+                          mini: true,
+                          child: const Icon(Icons.add, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Sous-titre de la date
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text(
+                          "Today",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2C3E50),
+                          ),
+                        ),
+                        Text(
+                          "Monday, 1 June",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Calendrier horizontal défilant
+                    SizedBox(
+                      height: 65,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          _buildDateCard("01", "M", active: true),
+                          _buildDateCard("02", "T"),
+                          _buildDateCard("03", "W"),
+                          _buildDateCard("04", "T"),
+                          _buildDateCard("05", "F"),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-      body: missionProvider.isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Bonjour, Agent",
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF2C2670),
-                    ),
-                  ),
-                  const Text(
-                    "Service à bord & Contrôle",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    "MISSION ACTIVE",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.grey,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
 
-                  if (mission == null)
-                    _buildEmptyMissionCard(context)
-                  else
-                    _buildActiveMissionCard(context, mission),
-
-                  const SizedBox(height: 28),
-                  const Text(
-                    "RACCOURCIS MÉTIERS",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.grey,
-                      letterSpacing: 1.2,
-                    ),
+              // ESPACE TRANSITION AVANT LA ZONE DES CARTES DANS LE BLEU
+              const Padding(
+                padding: EdgeInsets.only(top: 24.0, left: 24, bottom: 10),
+                child: Text(
+                  "SERVICES & ALERTES EN COURS",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white70,
+                    letterSpacing: 1.2,
                   ),
-                  const SizedBox(height: 10),
-
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.1,
-                    children: [
-                      _buildMenuCard(
-                        context,
-                        title: "Mission",
-                        icon: Icons.assignment_outlined,
-                        badgeText: nbAnomalies > 0
-                            ? nbAnomalies.toString()
-                            : null,
+                ),
+              ),
+              // ----------------------------------------------------
+              // ZONE INFERIEURE DÉFILANTE DANS LE FOND BLEU
+              // ----------------------------------------------------
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Column(
+                  children: [
+                    // S'il n'y a pas de train en base, on affiche une carte d'invite
+                    if (mission == null)
+                      _buildTaskCard(
+                        titre: "Initialiser le train",
+                        description: "Aucun service actif détecté en local.",
+                        heure: "En attente",
+                        icone: Icons.train_outlined,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => const EcranSaisiePremium(),
                           ),
                         ),
-                      ),
-                      _buildMenuCard(
-                        context,
-                        title: "Notes",
-                        icon: Icons.edit_note_outlined,
+                      )
+                    else ...[
+                      // S'il y a une mission, on affiche les informations du train
+                      _buildTaskCard(
+                        titre: "Mission : ${mission.numeroTrain}",
+                        description:
+                            "Responsable de bord : ${mission.nomChefDeTrain}",
+                        heure: mission.heureDepart,
+                        icone: Icons.directions_train_rounded,
                         onTap: () {},
                       ),
-                      _buildMenuCard(
-                        context,
-                        title: "Thèmes",
-                        icon: Icons.palette_outlined,
-                        onTap: () {},
-                      ),
-                      _buildMenuCard(
-                        context,
-                        title: "Outils",
-                        icon: Icons.build_circle_outlined,
-                        onTap: () {},
-                      ),
+                      const SizedBox(height: 12),
+
+                      // S'il y a des anomalies, on génère une carte par anomalie enregistrée
+                      if (nbAnomalies > 0)
+                        ...List.generate(nbAnomalies, (index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: _buildTaskCard(
+                              titre: "Alerte : Anomalie détectée",
+                              description: mission.anomaliesDepart[index],
+                              heure: "Urgent",
+                              icone: Icons.warning_amber_rounded,
+                              colorIconBox: const Color(0xFFF1C40F),
+                              onTap: () {},
+                            ),
+                          );
+                        })
+                      else
+                        _buildTaskCard(
+                          titre: "État du matériel",
+                          description:
+                              "Aucune anomalie signalée à bord de la rame.",
+                          heure: "OK",
+                          icone: Icons.check_circle_outline_rounded,
+                          colorIconBox: Colors.green,
+                          onTap: () {},
+                        ),
                     ],
-                  ),
-                ],
+
+                    const SizedBox(height: 24),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "RACCOURCIS MÉTIERS",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white70,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // LES 4 ICONES DU MENU (EN BAS ET ENTIÈREMENT SCROLLABLES)
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.1,
+                      children: [
+                        _buildMenuCard(
+                          context,
+                          title: "Mission",
+                          icon: Icons.assignment_outlined,
+                          badgeText: nbAnomalies > 0
+                              ? nbAnomalies.toString()
+                              : null,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EcranSaisiePremium(),
+                            ),
+                          ),
+                        ),
+                        _buildMenuCard(
+                          context,
+                          title: "Notes",
+                          icon: Icons.edit_note_outlined,
+                          onTap: () {},
+                        ),
+                        _buildMenuCard(
+                          context,
+                          title: "Thèmes",
+                          icon: Icons.palette_outlined,
+                          onTap: () {},
+                        ),
+                        _buildMenuCard(
+                          context,
+                          title: "Outils",
+                          icon: Icons.build_circle_outlined,
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 40,
+                    ), // Espace de confort en fin de défilement
+                  ],
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildEmptyMissionCard(BuildContext context) {
+  // WIDGET POUR LES CASES DU CALENDRIER DU HAUT
+  Widget _buildDateCard(String jour, String lettre, {bool active = false}) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(right: 12),
+      width: 52,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.orange.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
+        color: active ? const Color(0xFF2980B9) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: active
+            ? null
+            : Border.all(color: Colors.grey.withValues(alpha: 0.2)),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.train_outlined, size: 40, color: Colors.orange),
-          const SizedBox(height: 12),
-          const Text(
-            "Aucun service initialisé",
+          Text(
+            jour,
             style: TextStyle(
-              fontWeight: FontWeight.bold,
               fontSize: 16,
-              color: Color(0xFF2C2670),
+              fontWeight: FontWeight.bold,
+              color: active ? Colors.white : const Color(0xFF2C3E50),
             ),
           ),
-          const SizedBox(height: 6),
-          const Text(
-            "Déclarez votre numéro de train pour commencer le contrôle.",
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 14),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const EcranSaisiePremium(),
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              "Initialiser le Train",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+          const SizedBox(height: 2),
+          Text(
+            lettre,
+            style: TextStyle(
+              fontSize: 10,
+              color: active ? Colors.white70 : Colors.grey,
             ),
           ),
         ],
@@ -228,145 +320,104 @@ class EcranAccueilDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildActiveMissionCard(BuildContext context, dynamic mission) {
+  // WIDGET COMPOSANT : LES CARTES DE TÂCHES BLANCHES
+  Widget _buildTaskCard({
+    required String titre,
+    required String description,
+    required String heure,
+    required IconData icone,
+    Color colorIconBox = const Color(0xFF2980B9),
+    required VoidCallback onTap,
+  }) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2C2670), Color(0xFF4A3F9A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2C2670).withValues(alpha: 0.2),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 15,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.train_rounded,
-                    color: Colors.orange,
-                    size: 24,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: colorIconBox.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icone, color: colorIconBox, size: 26),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            titre,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2C3E50),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            description,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    mission.numeroTrain,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111111),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    heure,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  "En Cours",
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const Divider(color: Colors.white24, height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "DÉPART",
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    mission.heureDepart,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const Icon(
-                Icons.trending_flat_rounded,
-                color: Colors.white38,
-                size: 28,
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    "ARRIVÉE",
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    mission.heureArrivee,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(
-                Icons.account_circle_outlined,
-                color: Colors.white54,
-                size: 16,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                "Chef de bord : ${mission.nomChefDeTrain}",
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
+  // DESIGN DES BOUTONS DE LA GRILLE (LIGNES FINES ET SAAS LOOK)
   Widget _buildMenuCard(
     BuildContext context, {
     required String title,
