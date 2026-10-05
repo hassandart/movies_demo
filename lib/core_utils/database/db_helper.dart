@@ -16,16 +16,23 @@ class DbHelper {
       path,
       version: 1,
       onCreate: (db, version) async {
-        // Table pour les infos principales du train
         await db.execute('''
           CREATE TABLE missions(
             numeroTrain TEXT PRIMARY KEY,
-            nomChefDeTrain TEXT,
+            date TEXT,
             heureDepart TEXT,
-            heureArrivee TEXT
+            heureArrivee TEXT,
+            gareDepart TEXT,
+            gareArrivee TEXT,
+            nomChefDeTrain TEXT,
+            numeroChefDeTrain TEXT,
+            nombreVoitures INTEGER,
+            voyagersPremiereCl INTEGER,
+            voyagersSecondeCl INTEGER,
+            billetsControles INTEGER
           )
         ''');
-        // Table pour les anomalies (liée au numéro de train)
+
         await db.execute('''
           CREATE TABLE anomalies(
             id INTEGER PRIMARY KEY AUTOINCREMENT,

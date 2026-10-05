@@ -1,30 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:movies_demo/presentation/providers/mission_provider.dart';
+import 'package:movies_demo/presentation/pages/ecran_saisie.dart';
 
-import 'ecran_saisie.dart';
-
-class EcranAccueilDashboard extends StatelessWidget {
+class EcranAccueilDashboard extends StatefulWidget {
   const EcranAccueilDashboard({super.key});
 
   @override
+  State<EcranAccueilDashboard> createState() => _EcranAccueilDashboardState();
+}
+
+class _EcranAccueilDashboardState extends State<EcranAccueilDashboard> {
+  // Ajustement dynamique basé sur l'horloge système réelle
+  final DateTime _dateAujourdhui = DateTime.now();
+  int _indexJourSelectionne = 0;
+
+  final List<String> _lettresJours = ["L", "M", "M", "J", "V", "S", "D"];
+  final List<String> _moisAnnee = [
+    "Janvier",
+    "Février",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juillet",
+    "Août",
+    "Septembre",
+    "Octobre",
+    "Novembre",
+    "Décembre",
+  ];
+
+  DateTime _obtenirDateIndex(int index) {
+    return _dateAujourdhui.add(Duration(days: index));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final missionProvider = context.watch<MissionProvider>();
-    final mission = missionProvider.missionActuelle;
-    final int nbAnomalies = mission?.anomaliesDepart.length ?? 0;
+    // Blocage strict de l'exception T != dynamic
+    final missionProvider = Provider.of<MissionProvider>(context, listen: true);
+    final missions = missionProvider.listeMissions;
+    final missionActuelle = missionProvider.missionActuelle;
+    final int nbAnomalies = missionActuelle?.anomaliesDepart.length ?? 0;
+
+    DateTime dateAffichee = _obtenirDateIndex(_indexJourSelectionne);
+    String moisActuel = _moisAnnee[dateAffichee.month - 1];
+    String anneeActuelle = dateAffichee.year.toString();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF2980B9), // Fond bleu de l'image
+      backgroundColor: const Color(0xFF2980B9),
       body: SafeArea(
-        top: false, // Permet au bloc blanc de monter tout en haut
+        top: false,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ----------------------------------------------------
-              // LE BLOC BLANC DU HAUT (FORME ASYMÉTRIQUE)
-              // ----------------------------------------------------
               Container(
                 width: double.infinity,
                 decoration: const BoxDecoration(
@@ -43,7 +74,6 @@ class EcranAccueilDashboard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Barre supérieure
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -73,13 +103,11 @@ class EcranAccueilDashboard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 25),
-
-                    // Titre principal et bouton d'action
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "My Task",
+                          "Missions",
                           style: TextStyle(
                             fontSize: 34,
                             fontWeight: FontWeight.w900,
@@ -87,12 +115,19 @@ class EcranAccueilDashboard extends StatelessWidget {
                           ),
                         ),
                         FloatingActionButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const EcranSaisiePremium(),
-                            ),
-                          ),
+                          onPressed: () {
+                            Provider.of<MissionProvider>(
+                              context,
+                              listen: false,
+                            ).reinitialiserSaisie();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const EcranSaisiePremium(),
+                              ),
+                            );
+                          },
                           backgroundColor: const Color(0xFF2980B9),
                           mini: true,
                           child: const Icon(Icons.add, color: Colors.white),
@@ -100,13 +135,11 @@ class EcranAccueilDashboard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 15),
-
-                    // Sous-titre de la date
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text(
-                          "Today",
+                      children: [
+                        const Text(
+                          "Aujourd'hui",
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -114,37 +147,42 @@ class EcranAccueilDashboard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          "Monday, 1 June",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          "$moisActuel $anneeActuelle",
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 15),
-
-                    // Calendrier horizontal défilant
                     SizedBox(
                       height: 65,
-                      child: ListView(
+                      child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         physics: const BouncingScrollPhysics(),
-                        children: [
-                          _buildDateCard("01", "M", active: true),
-                          _buildDateCard("02", "T"),
-                          _buildDateCard("03", "W"),
-                          _buildDateCard("04", "T"),
-                          _buildDateCard("05", "F"),
-                        ],
+                        itemCount: 5,
+                        itemBuilder: (context, index) {
+                          DateTime jourCalcule = _dateAujourdhui.add(
+                            Duration(days: index),
+                          );
+                          String chiffreJour = jourCalcule.day
+                              .toString()
+                              .padLeft(2, '0');
+                          String lettreJour =
+                              _lettresJours[jourCalcule.weekday - 1];
+                          return _buildDateCard(index, chiffreJour, lettreJour);
+                        },
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // ESPACE TRANSITION AVANT LA ZONE DES CARTES DANS LE BLEU
               const Padding(
-                padding: EdgeInsets.only(top: 24.0, left: 24, bottom: 10),
+                padding: EdgeInsets.only(top: 25.0, left: 24, bottom: 12),
                 child: Text(
-                  "SERVICES & ALERTES EN COURS",
+                  "RACCOURCIS MÉTIERS",
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
@@ -153,127 +191,122 @@ class EcranAccueilDashboard extends StatelessWidget {
                   ),
                 ),
               ),
-              // ----------------------------------------------------
-              // ZONE INFERIEURE DÉFILANTE DANS LE FOND BLEU
-              // ----------------------------------------------------
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.1,
+                  children: [
+                    _buildMenuCard(
+                      context,
+                      title: "Mission",
+                      icon: Icons.assignment_outlined,
+                      badgeText: nbAnomalies > 0
+                          ? nbAnomalies.toString()
+                          : null,
+                      onTap: () {
+                        Provider.of<MissionProvider>(
+                          context,
+                          listen: false,
+                        ).reinitialiserSaisie();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const EcranSaisiePremium(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildMenuCard(
+                      context,
+                      title: "Notes",
+                      icon: Icons.edit_note_outlined,
+                      onTap: () {},
+                    ),
+                    _buildMenuCard(
+                      context,
+                      title: "Thèmes",
+                      icon: Icons.palette_outlined,
+                      onTap: () {},
+                    ),
+                    _buildMenuCard(
+                      context,
+                      title: "Outils",
+                      icon: Icons.build_circle_outlined,
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 30.0, left: 24, bottom: 12),
+                child: Text(
+                  "FIL D'ATTENTE DES MISSIONS EN COURS",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white70,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Column(
                   children: [
-                    // S'il n'y a pas de train en base, on affiche une carte d'invite
-                    if (mission == null)
+                    if (missions.isEmpty)
                       _buildTaskCard(
                         titre: "Initialiser le train",
                         description: "Aucun service actif détecté en local.",
                         heure: "En attente",
                         icone: Icons.train_outlined,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EcranSaisiePremium(),
-                          ),
-                        ),
-                      )
-                    else ...[
-                      // S'il y a une mission, on affiche les informations du train
-                      _buildTaskCard(
-                        titre: "Mission : ${mission.numeroTrain}",
-                        description:
-                            "Responsable de bord : ${mission.nomChefDeTrain}",
-                        heure: mission.heureDepart,
-                        icone: Icons.directions_train_rounded,
-                        onTap: () {},
-                      ),
-                      const SizedBox(height: 12),
-
-                      // S'il y a des anomalies, on génère une carte par anomalie enregistrée
-                      if (nbAnomalies > 0)
-                        ...List.generate(nbAnomalies, (index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: _buildTaskCard(
-                              titre: "Alerte : Anomalie détectée",
-                              description: mission.anomaliesDepart[index],
-                              heure: "Urgent",
-                              icone: Icons.warning_amber_rounded,
-                              colorIconBox: const Color(0xFFF1C40F),
-                              onTap: () {},
-                            ),
-                          );
-                        })
-                      else
-                        _buildTaskCard(
-                          titre: "État du matériel",
-                          description:
-                              "Aucune anomalie signalée à bord de la rame.",
-                          heure: "OK",
-                          icone: Icons.check_circle_outline_rounded,
-                          colorIconBox: Colors.green,
-                          onTap: () {},
-                        ),
-                    ],
-
-                    const SizedBox(height: 24),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "RACCOURCIS MÉTIERS",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white70,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // LES 4 ICONES DU MENU (EN BAS ET ENTIÈREMENT SCROLLABLES)
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.1,
-                      children: [
-                        _buildMenuCard(
-                          context,
-                          title: "Mission",
-                          icon: Icons.assignment_outlined,
-                          badgeText: nbAnomalies > 0
-                              ? nbAnomalies.toString()
-                              : null,
-                          onTap: () => Navigator.push(
+                        onTap: () {
+                          Provider.of<MissionProvider>(
+                            context,
+                            listen: false,
+                          ).reinitialiserSaisie();
+                          Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => const EcranSaisiePremium(),
                             ),
+                          );
+                        },
+                      )
+                    else
+                      ...List.generate(missions.length, (index) {
+                        final itemMission = missions[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: _buildTaskCard(
+                            titre: "Train N° ${itemMission.numeroTrain}",
+                            description:
+                                "Relation TNR : ${itemMission.gareDepart} ➔ ${itemMission.gareArrivee}\nChef de brigade : ${itemMission.nomChefDeTrain}",
+                            heure: itemMission.heureDepart,
+                            icone: Icons.directions_train_rounded,
+                            onTap: () {
+                              Provider.of<MissionProvider>(
+                                context,
+                                listen: false,
+                              ).selectionnerMissionPourModification(
+                                itemMission,
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EcranSaisiePremium(),
+                                ),
+                              );
+                            },
                           ),
-                        ),
-                        _buildMenuCard(
-                          context,
-                          title: "Notes",
-                          icon: Icons.edit_note_outlined,
-                          onTap: () {},
-                        ),
-                        _buildMenuCard(
-                          context,
-                          title: "Thèmes",
-                          icon: Icons.palette_outlined,
-                          onTap: () {},
-                        ),
-                        _buildMenuCard(
-                          context,
-                          title: "Outils",
-                          icon: Icons.build_circle_outlined,
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 40,
-                    ), // Espace de confort en fin de défilement
+                        );
+                      }),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -284,43 +317,45 @@ class EcranAccueilDashboard extends StatelessWidget {
     );
   }
 
-  // WIDGET POUR LES CASES DU CALENDRIER DU HAUT
-  Widget _buildDateCard(String jour, String lettre, {bool active = false}) {
-    return Container(
-      margin: const EdgeInsets.only(right: 12),
-      width: 52,
-      decoration: BoxDecoration(
-        color: active ? const Color(0xFF2980B9) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: active
-            ? null
-            : Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            jour,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: active ? Colors.white : const Color(0xFF2C3E50),
+  Widget _buildDateCard(int index, String jour, String lettre) {
+    final bool active = _indexJourSelectionne == index;
+    return GestureDetector(
+      onTap: () => setState(() => _indexJourSelectionne = index),
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        width: 52,
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFF2980B9) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: active
+              ? null
+              : Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              jour,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: active ? Colors.white : const Color(0xFF2C3E50),
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            lettre,
-            style: TextStyle(
-              fontSize: 10,
-              color: active ? Colors.white70 : Colors.grey,
+            const SizedBox(height: 2),
+            Text(
+              lettre,
+              style: TextStyle(
+                fontSize: 10,
+                color: active ? Colors.white70 : Colors.grey,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // WIDGET COMPOSANT : LES CARTES DE TÂCHES BLANCHES
   Widget _buildTaskCard({
     required String titre,
     required String description,
@@ -371,7 +406,7 @@ class EcranAccueilDashboard extends StatelessWidget {
                           Text(
                             titre,
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF2C3E50),
                             ),
@@ -417,7 +452,6 @@ class EcranAccueilDashboard extends StatelessWidget {
     );
   }
 
-  // DESIGN DES BOUTONS DE LA GRILLE (LIGNES FINES ET SAAS LOOK)
   Widget _buildMenuCard(
     BuildContext context, {
     required String title,
