@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
-import '../../domain/entities/mission.dart';
-import '../../domain/repositories/mission_repository.dart';
+import 'package:movies_demo/domain/repositories/mission_repository.dart';
+import 'package:movies_demo/domain/entities/mission.dart';
 
 class MissionProvider extends ChangeNotifier {
   final MissionRepository repository;
@@ -31,19 +30,13 @@ class MissionProvider extends ChangeNotifier {
   Future<void> chargerToutesLesMissions() async {
     _isLoading = true;
     notifyListeners();
-
     try {
-      final list = await repository.getAllMissions();
-      _listeMissions = list;
-      if (_listeMissions.isNotEmpty) {
-        _missionActuelle = _listeMissions.first;
-      } else {
-        _missionActuelle = null;
-      }
+      _listeMissions = await repository.getAllMissions();
     } catch (e) {
-      debugPrint("Erreur chargement missions: $e");
-    }
-    {
+      debugPrint(
+        "Erreur lors du chargement des missions dans le Provider : $e",
+      );
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -52,46 +45,31 @@ class MissionProvider extends ChangeNotifier {
   Future<void> enregistrerMission(Mission mission) async {
     _isLoading = true;
     notifyListeners();
-
-    await repository.saveMission(mission);
-    _missionActuelle = mission;
-
-    if (!_listeMissions.any((m) => m.numeroTrain == mission.numeroTrain)) {
-      _listeMissions.insert(0, mission);
-    } else {
-      final index = _listeMissions.indexWhere(
-        (m) => m.numeroTrain == mission.numeroTrain,
-      );
-      _listeMissions[index] = mission;
+    try {
+      await repository.saveMission(mission);
+      _listeMissions = await repository.getAllMissions();
+    } catch (e) {
+      debugPrint("Erreur lors de l'enregistrement dans le Provider : $e");
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
-  // 🛡️ SÉCURISATION DU BOUTON SUPPRIMER : Nettoyage local direct sans async gap
   Future<void> supprimerMission(String numeroTrain) async {
     _isLoading = true;
     notifyListeners();
-
     try {
-      // 1. Suppression physique immédiate dans la base sqflite
       await repository.deleteMission(numeroTrain);
-
-      // 2. Nettoyage instantané de la mémoire locale (UI réactive)
-      _listeMissions.removeWhere((m) => m.numeroTrain == numeroTrain);
-
+      _listeMissions = await repository.getAllMissions();
       if (_missionActuelle?.numeroTrain == numeroTrain) {
-        _missionActuelle = _listeMissions.isNotEmpty
-            ? _listeMissions.first
-            : null;
+        _missionActuelle = null;
       }
     } catch (e) {
-      debugPrint("Erreur lors de la suppression : $e");
-    }
-    {
+      debugPrint("Erreur lors de la suppression dans le Provider : $e");
+    } finally {
       _isLoading = false;
-      notifyListeners(); // On prévient l'accueil de se redessiner sans recharger
+      notifyListeners();
     }
   }
 }

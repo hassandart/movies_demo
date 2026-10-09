@@ -1,6 +1,7 @@
 import '../../domain/entities/mission.dart';
 
 class MissionModel extends Mission {
+  // L'utilisation de super. élimine le besoin d'écrire le bloc : super(...)
   MissionModel({
     required super.numeroTrain,
     required super.date,
@@ -11,10 +12,12 @@ class MissionModel extends Mission {
     required super.nomChefDeTrain,
     required super.numeroChefDeTrain,
     required super.anomaliesDepart,
-    required super.nombreVoitures,
-    required super.voyagersPremiereCl,
-    required super.voyagersSecondeCl,
     required super.billetsControles,
+    required super.voyageursPremiereCl,
+    required super.voyageursSecondeCl,
+    required super.comptageRabat,
+    required super.comptageTerminal,
+    required super.typeService,
   });
 
   Map<String, dynamic> toMap() {
@@ -27,10 +30,12 @@ class MissionModel extends Mission {
       'gareArrivee': gareArrivee,
       'nomChefDeTrain': nomChefDeTrain,
       'numeroChefDeTrain': numeroChefDeTrain,
-      'nombreVoitures': nombreVoitures,
-      'voyagersPremiereCl': voyagersPremiereCl,
-      'voyagersSecondeCl': voyagersSecondeCl,
       'billetsControles': billetsControles,
+      'voyageursPremiereCl': voyageursPremiereCl, // Clé SQL
+      'voyageursSecondeCl': voyageursSecondeCl, // Clé SQL
+      'comptageRabat': comptageRabat,
+      'comptageTerminal': comptageTerminal,
+      'typeService': typeService,
     };
   }
 
@@ -47,11 +52,13 @@ class MissionModel extends Mission {
       gareArrivee: map['gareArrivee'] ?? '',
       nomChefDeTrain: map['nomChefDeTrain'] ?? '',
       numeroChefDeTrain: map['numeroChefDeTrain'] ?? '',
+      billetsControles: (map['billetsControles'] ?? 0) as int,
+      voyageursPremiereCl: (map['voyageursPremiereCl'] ?? 0) as int,
+      voyageursSecondeCl: (map['voyageursSecondeCl'] ?? 0) as int,
+      comptageRabat: (map['comptageRabat'] ?? 0) as int,
+      comptageTerminal: (map['comptageTerminal'] ?? 0) as int,
+      typeService: map['typeService'] ?? 'TRAIN NOMINAL',
       anomaliesDepart: anomalies,
-      nombreVoitures: map['nombreVoitures'] ?? 8,
-      voyagersPremiereCl: map['voyagersPremiereCl'] ?? 0,
-      voyagersSecondeCl: map['voyagersSecondeCl'] ?? 0,
-      billetsControles: map['billetsControles'] ?? 0,
     );
   }
 }

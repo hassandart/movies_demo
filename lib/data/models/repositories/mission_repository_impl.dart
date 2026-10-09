@@ -12,6 +12,7 @@ class MissionRepositoryImpl implements MissionRepository {
   Future<void> saveMission(Mission mission) async {
     final db = await dbHelper.database;
 
+    // 🛡️ ALIGNEMENT DE TOUTES LES PROPRIÉTÉS EN FRANÇAIS : voyageursPremiereCl et voyageursSecondeCl
     final model = MissionModel(
       numeroTrain: mission.numeroTrain,
       date: mission.date,
@@ -22,10 +23,12 @@ class MissionRepositoryImpl implements MissionRepository {
       nomChefDeTrain: mission.nomChefDeTrain,
       numeroChefDeTrain: mission.numeroChefDeTrain,
       anomaliesDepart: mission.anomaliesDepart,
-      nombreVoitures: mission.nombreVoitures,
-      voyagersPremiereCl: mission.voyagersPremiereCl,
-      voyagersSecondeCl: mission.voyagersSecondeCl,
       billetsControles: mission.billetsControles,
+      voyageursPremiereCl: mission.voyageursPremiereCl,
+      voyageursSecondeCl: mission.voyageursSecondeCl,
+      comptageRabat: mission.comptageRabat,
+      comptageTerminal: mission.comptageTerminal,
+      typeService: mission.typeService,
     );
 
     await db.transaction((txn) async {
@@ -34,13 +37,11 @@ class MissionRepositoryImpl implements MissionRepository {
         model.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-
       await txn.delete(
         'anomalies',
         where: 'numeroTrain = ?',
         whereArgs: [model.numeroTrain],
       );
-
       for (var anomalie in model.anomaliesDepart) {
         await txn.insert('anomalies', {
           'numeroTrain': model.numeroTrain,
@@ -51,73 +52,44 @@ class MissionRepositoryImpl implements MissionRepository {
   }
 
   @override
-  Future<Mission?> getActiveMission() async {
-    final db = await dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'missions',
-      orderBy: 'date DESC',
-      limit: 1,
-    );
-
-    if (maps.isEmpty) return null;
-
-    final String numeroTrainActive = maps.first['numeroTrain'];
-
-    final List<Map<String, dynamic>> anomalyMaps = await db.query(
-      'anomalies',
-      where: 'numeroTrain = ?',
-      whereArgs: [numeroTrainActive],
-    );
-
-    List<String> anomalies = anomalyMaps
-        .map((ligne) => ligne['description'] as String)
-        .toList();
-
-    return MissionModel.fromMap(maps.first, anomalies);
-  }
-
-  @override
   Future<List<Mission>> getAllMissions() async {
     final db = await dbHelper.database;
+
+    // 🛡️ OPTIMISATION DU TRI : Tri par ID de ligne décroissant pour voir le dernier train saisi en premier
     final List<Map<String, dynamic>> maps = await db.query(
       'missions',
-      orderBy: 'date DESC',
+      orderBy: 'rowid DESC',
     );
 
-    List<Mission> listeMissions = [];
-
+    List<Mission> liste = [];
     for (var map in maps) {
-      final String numTrain = map['numeroTrain'];
+      // 🛡️ ISOLATION EXPLICITE DE L'INDEX : Garantit que chaque clic charge le bon train sans écrasement
+      final String numTrainSpecifique = map['numeroTrain'].toString();
+
       final List<Map<String, dynamic>> anomalyMaps = await db.query(
         'anomalies',
         where: 'numeroTrain = ?',
-        whereArgs: [numTrain],
+        whereArgs: [numTrainSpecifique],
       );
 
       List<String> anomalies = anomalyMaps
-          .map((ligne) => ligne['description'] as String)
+          .map((l) => l['description'] as String)
           .toList();
 
-      listeMissions.add(MissionModel.fromMap(map, anomalies));
+      liste.add(MissionModel.fromMap(map, anomalies));
     }
-
-    return listeMissions;
+    return liste;
   }
 
-  // 3. IMPLÉMENTATION CONCRÈTE SÉCURISÉE DE LA SUPPRESSION SQLITE
   @override
   Future<void> deleteMission(String numeroTrain) async {
     final db = await dbHelper.database;
-
     await db.transaction((txn) async {
-      // Nettoyage de la table dépendante
       await txn.delete(
         'anomalies',
         where: 'numeroTrain = ?',
         whereArgs: [numeroTrain],
       );
-
-      // Nettoyage de la table principale
       await txn.delete(
         'missions',
         where: 'numeroTrain = ?',
