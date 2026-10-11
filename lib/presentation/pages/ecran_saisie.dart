@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:movies_demo/domain/entities/mission.dart';
 import 'package:movies_demo/presentation/providers/mission_provider.dart';
 
-import 'ecran_accueil.dart';
+import 'ecran_accueil.dart'; // Vérifiez si c'est 'ecran_accueil.dart' ou 'ecran_accueil_dashboard.dart'
 
 class EcranSaisiePremium extends StatefulWidget {
   const EcranSaisiePremium({super.key});
@@ -16,8 +16,6 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   final _formKey = GlobalKey<FormState>();
   bool _estEnModeModification = false;
   String _numTrainOrigine = "";
-
-  // Variable d'état de votre croquis d'origine
   String _destinationChoisie = "";
 
   late TextEditingController _numTrainController;
@@ -27,8 +25,9 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   late TextEditingController _nomChefController;
   late TextEditingController _telephoneController;
   late TextEditingController _rameController;
+  late TextEditingController _anomaliesController;
 
-  // 🛡️ RESTAURATION DE LA VARIABLE MANQUANTE : Configuration de vos 4 boutons d'axes ONCF
+  // 📊 Décompté et réactivé : Configuration de vos 4 boutons d'axes ONCF
   final List<Map<String, String>> _boutonsDestinations = [
     {"label": "K", "nom": "KENITRA", "code": "250"},
     {"label": "EJ", "nom": "EL JADIDA", "code": "610"},
@@ -36,22 +35,21 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     {"label": "A", "nom": "AÉROPORT MED V", "code": "190"},
   ];
 
-  final List<Map<String, dynamic>> _categoriesRames = [
-    {
-      "categorie": "Série ZM",
-      "valeurs": ["2", "16", "18", "24"],
-    },
-    {
-      "categorie": "Série Z2M",
-      "valeurs": ["101", "126", "132", "140"],
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
+
     final missionActuelle = context.read<MissionProvider>().missionActuelle;
     _estEnModeModification = missionActuelle != null;
+
+    // 🔥 Initialisation immédiate pour éviter le LateInitializationError
+    _anomaliesController = TextEditingController(
+      text:
+          (missionActuelle != null &&
+              missionActuelle.anomaliesDepart.isNotEmpty)
+          ? missionActuelle.anomaliesDepart.join("\n")
+          : '',
+    );
 
     final String dateFormatee =
         "${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}";
@@ -74,7 +72,6 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     _telephoneController = TextEditingController(
       text: missionActuelle?.numeroChefDeTrain ?? '',
     );
-
     _rameController = TextEditingController(
       text: (missionActuelle == null || missionActuelle.voyageursSecondeCl == 0)
           ? ''
@@ -96,11 +93,19 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     _nomChefController.dispose();
     _telephoneController.dispose();
     _rameController.dispose();
+    _anomaliesController
+        .dispose(); // 🟩 CORRECTION : Libération du contrôleur d'anomalies
     super.dispose();
   }
 
   void _sauvegarderEtBasculerVersAccueil() async {
     if (_formKey.currentState!.validate() && _destinationChoisie.isNotEmpty) {
+      // 🟩 CORRECTION : Capture et formatage dynamique de votre champ d'anomalies
+      final texteAnomalies = _anomaliesController.text.trim();
+      final List<String> listeAnomalies = texteAnomalies.isEmpty
+          ? const []
+          : [texteAnomalies];
+
       final nouvelleMission = Mission(
         numeroTrain: _numTrainController.text.trim().isEmpty
             ? "0"
@@ -112,7 +117,8 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         gareArrivee: _destinationChoisie,
         nomChefDeTrain: _nomChefController.text.trim(),
         numeroChefDeTrain: _telephoneController.text.trim(),
-        anomaliesDepart: const [],
+        anomaliesDepart:
+            listeAnomalies, // 🟩 CORRECTION : Liaison avec SQLite rétablie
         billetsControles: 0,
         voyageursPremiereCl: 0,
         voyageursSecondeCl: int.tryParse(_rameController.text.trim()) ?? 0,
@@ -132,7 +138,6 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
       }
 
       await missionProvider.enregistrerMission(nouvelleMission);
-
       if (!mounted) return;
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -140,6 +145,170 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         (route) => false,
       );
     }
+  }
+
+  // 🎨 FONCTION DE GRAPHISME : Les champs standards équipés de leur LIGNE JAUNE
+  Widget _buildStandardField({
+    required TextEditingController controller,
+    required IconData icone, // Paramètre requis validé
+    String? label,
+    String? hintText,
+    bool lectureSeule = false,
+    bool estNumerique = false,
+  }) {
+    return TextFormField(
+      controller: controller,
+      readOnly: lectureSeule,
+      keyboardType: estNumerique ? TextInputType.number : TextInputType.text,
+      style: const TextStyle(
+        color: Color(0xFF2C3E50),
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      ),
+      validator: (val) =>
+          val == null || val.trim().isEmpty ? "Champ requis" : null,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        labelStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+        hintStyle: TextStyle(
+          color: Colors.grey.withValues(alpha: 0.6),
+          fontSize: 13,
+        ),
+        prefixIcon: Icon(icone, color: const Color(0xFF2980B9), size: 20),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+
+        // 🔥 Ligne jaune ONCF par défaut sous le champ blanc
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 2.0),
+        ),
+        // 🔥 Ligne jaune plus épaisse lors du clic
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 3.0),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+        ),
+      ),
+    );
+  }
+
+  // 🎨 FONCTION DE GRAPHISME : Le Grand Champ d'anomalies autonome équipé de sa LIGNE JAUNE
+  Widget _buildGrandChampAnomalies({
+    required TextEditingController controller,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: 4,
+      minLines: 4,
+      keyboardType: TextInputType.multiline,
+      style: const TextStyle(
+        color: Color(0xFF2C3E50),
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        hintText: "Saisir une anomalie si nécessaire...",
+        hintStyle: TextStyle(
+          color: Colors.grey.withValues(alpha: 0.6),
+          fontSize: 13,
+        ),
+        prefixIcon: const Align(
+          alignment: Alignment.topLeft,
+          widthFactor: 1.0,
+          heightFactor: 1.0,
+          child: Padding(
+            padding: EdgeInsets.only(left: 12, top: 14, right: 8),
+            child: Icon(
+              Icons.report_problem_rounded,
+              color: Colors.orange,
+              size: 20,
+            ),
+          ),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.all(16),
+
+        // 🔥 Ligne jaune par défaut
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 2.0),
+        ),
+        // 🔥 Ligne jaune lors du clic
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 3.0),
+        ),
+      ),
+    );
+  }
+
+  // 🎨 FONCTION DE GRAPHISME : Le bandeau d'affichage publicitaire / informatif requis
+  Widget _buildEcranAccueilPublicitaire() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFC400).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFFFC400),
+          width: 1.5,
+        ), // Encadrement jaune
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline_rounded, color: Color(0xFFFFC400), size: 22),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "Note Brigade : S'assurer de la présence des kits de sécurité avant le départ de Casa-Port.",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎨 FONCTION DE GRAPHISME : Le conteneur de carte blanche
+  Widget _buildCardContainer(List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
   }
 
   @override
@@ -161,25 +330,14 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         child: ListView(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.all(16),
-          children: <Widget>[
-            // 📊 BANDEAU BLEU NUIT DES BOUTONS DE DESTINATION RE-CONSOLIDÉ
+          children: [
+            // 📊 1. BANDEAU DE SELECTION D'AXE ONCF (K, EJ, S, A)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              decoration: BoxDecoration(
-                // color: const Color(0xFF113147),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: _boutonsDestinations.map<Widget>((map) {
+                children: _boutonsDestinations.map((map) {
                   final bool estSelectionne = _destinationChoisie == map["nom"];
                   return Expanded(
                     child: Container(
@@ -193,43 +351,20 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                           foregroundColor: estSelectionne
                               ? const Color(0xFF2980B9)
                               : Colors.white,
-                          elevation: estSelectionne ? 3 : 0,
-                          padding: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(
-                              color: estSelectionne
-                                  ? Colors.transparent
-                                  : Colors.white.withValues(alpha: 0.3),
-                              width: 1.2,
-                            ),
                           ),
+                          elevation: estSelectionne ? 2 : 0,
                         ),
                         onPressed: () => setState(() {
                           _destinationChoisie = map["nom"]!;
                         }),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              map["label"]!,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: estSelectionne
-                                    ? const Color(0xFF27AE60)
-                                    : Colors.white.withValues(alpha: 0.3),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          map["label"]!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -237,303 +372,126 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                 }).toList(),
               ),
             ),
-
+            const SizedBox(height: 16),
+            // 📇 2. CARTE BLANCHE CONTENANT LES 4 CHAMPS STANDARDS (Train, Rame, Chef, Tel)
+            _buildCardContainer([
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildStandardField(
+                      controller: _numTrainController,
+                      icone: Icons.train,
+                      hintText: "N° Train (Saisie libre)",
+                      estNumerique: true,
+                      lectureSeule: _estEnModeModification,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStandardField(
+                      controller: _rameController,
+                      icone: Icons.directions_railway,
+                      label: "N° Rame",
+                      estNumerique: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildStandardField(
+                      controller: _nomChefController,
+                      icone: Icons.person,
+                      label: "Nom Chef",
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStandardField(
+                      controller: _telephoneController,
+                      icone: Icons.phone,
+                      label: "N° Téléphone",
+                      estNumerique: true,
+                    ),
+                  ),
+                ],
+              ),
+            ]),
+            const SizedBox(height: 16),
+            // 📅 3. SECONDE CARTE BLANCHE CONTENANT LA DATE ET LES HEURES
+            _buildCardContainer([
+              _buildStandardField(
+                controller: _dateController,
+                icone: Icons.calendar_today_rounded,
+                label: "Date",
+                lectureSeule: true,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStandardField(
+                      controller: _departController,
+                      icone: Icons.access_time_rounded,
+                      label: "Heure Départ",
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStandardField(
+                      controller: _arriveeController,
+                      icone: Icons.update_rounded,
+                      label: "Heure Arrivée",
+                    ),
+                  ),
+                ],
+              ),
+            ]),
             const SizedBox(height: 24),
-
-            // Commutation de la machine à états de votre croquis d'origine
-            _destinationChoisie.isEmpty
-                ? _buildEcranAccueilPublicitaire()
-                : _buildFormulaireTechniqueMissions(),
+            // ⚠️ 4. LE GRAND BLOC ANOMALIES AUTONOME (Dessiné sous les cartes)
+            const Text(
+              "ANOMALIES AU DÉPART",
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.white70,
+                letterSpacing: 1.1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildGrandChampAnomalies(controller: _anomaliesController),
+            const SizedBox(height: 16),
+            // 📢 5. ACTIVATION DU BANDEAU PUBLICITAIRE / INFORMATIF RECONSTITUÉ
+            _buildEcranAccueilPublicitaire(),
+            const SizedBox(height: 24),
+            // 🟩 6. LE BOUTON DE VALIDATION VERT ET ETIRÉ TOUT EN BAS
+            ElevatedButton(
+              onPressed: _sauvegarderEtBasculerVersAccueil,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF27AE60),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 3,
+              ),
+              child: const Text(
+                "VALIDER LA MISSION",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildEcranAccueilPublicitaire() {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.65,
-      child: Column(
-        children: <Widget>[
-          const SizedBox(height: 40),
-
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.zero,
-            decoration: BoxDecoration(
-              // color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFBDC3C7), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/spider.jpg',
-                    width: double.infinity,
-                    height: 160,
-                    fit: BoxFit.fill,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 40),
-                        child: Text(
-                          "ONCF",
-                          style: TextStyle(
-                            fontSize: 44,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1B4F72),
-                            letterSpacing: 3,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    width: double.infinity,
-                    color: Colors.grey.withValues(alpha: 0.05),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: const Center(
-                      child: Text(
-                        "Espace Commercial",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              height: 90,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "ESPACE PUBLICITAIRE",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  // SizedBox(height: 12),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      physics: BouncingScrollPhysics(),
-                      child: Text(
-                        "Saisissez votre texte publicitaire ici ou les annonces commerciales de la brigade. Ce bloc occupe désormais tout l'espace géométrique inférieur de l'écran de saisie mobile pour une visibilité maximale en cabine.",
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.white70,
-                          height: 1.3,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormulaireTechniqueMissions() {
-    return _buildCardContainer([
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _buildStandardField(
-              controller: _numTrainController,
-              label: "N° Train (Saisie libre)",
-              lectureSeule: _estEnModeModification,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: _buildHybrideRameField()),
-        ],
-      ),
-      const SizedBox(height: 16),
-      const Text(
-        "BRIGADE TRAIN",
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey,
-          letterSpacing: 1.1,
-        ),
-      ),
-      const SizedBox(height: 6),
-      Row(
-        children: [
-          Expanded(
-            child: _buildStandardField(
-              controller: _nomChefController,
-              label: "Nom Chef",
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStandardField(
-              controller: _telephoneController,
-              label: "N° Téléphone",
-              estNumerique: true,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 24),
-      ElevatedButton(
-        onPressed: _sauvegarderEtBasculerVersAccueil,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF27AE60),
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: const Text(
-          "VALIDER LA MISSION",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-      ),
-    ]);
-  }
-
-  Widget _buildHybrideRameField() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextFormField(
-            controller: _rameController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: "Rame",
-              contentPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-            ),
-            validator: (val) {
-              if (val == null || val.trim().isEmpty) return "Requis";
-              return null;
-            },
-          ),
-        ),
-        DropdownButtonHideUnderline(
-          child: DropdownButton(
-            icon: const Icon(
-              Icons.arrow_drop_down_circle_rounded,
-              color: Color(0xFF2980B9),
-              size: 22,
-            ),
-            dropdownColor: Colors.white,
-            items: _categoriesRames.expand<DropdownMenuItem>((cat) {
-              return [
-                DropdownMenuItem(
-                  value: null,
-                  enabled: false,
-                  child: Text(
-                    cat["categorie"],
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-                ...(cat["valeurs"] as List).map((rame) {
-                  return DropdownMenuItem(
-                    value: rame,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 6.0),
-                      child: Text(
-                        "Rame $rame",
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ];
-            }).toList(),
-            onChanged: (valeurChoisie) {
-              if (valeurChoisie != null) {
-                setState(() {
-                  _rameController.text = valeurChoisie;
-                });
-              }
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCardContainer(List<Widget> enfants) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: enfants,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStandardField({
-    required TextEditingController controller,
-    required String label,
-    bool lectureSeule = false,
-    bool estNumerique = false,
-  }) {
-    return TextFormField(
-      controller: controller,
-      readOnly: lectureSeule,
-      keyboardType: estNumerique ? TextInputType.phone : TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-        filled: lectureSeule,
-        fillColor: lectureSeule ? const Color(0xFFEAECEE) : null,
-      ),
-      validator: (val) {
-        if (val == null || val.trim().isEmpty) {
-          return "Champ requis";
-        }
-        return null;
-      },
     );
   }
 }

@@ -1,8 +1,8 @@
 import '../../domain/entities/mission.dart';
 
 class MissionModel extends Mission {
-  // L'utilisation de super. élimine le besoin d'écrire le bloc : super(...)
-  MissionModel({
+  // 📝 Constructeur transmettant les propriétés à la classe mère via 'super'
+  const MissionModel({
     required super.numeroTrain,
     required super.date,
     required super.heureDepart,
@@ -20,6 +20,7 @@ class MissionModel extends Mission {
     required super.typeService,
   });
 
+  // 💾 CONVERSION VERS MAP : Préparation des données pour la table 'missions'
   Map<String, dynamic> toMap() {
     return {
       'numeroTrain': numeroTrain,
@@ -31,14 +32,17 @@ class MissionModel extends Mission {
       'nomChefDeTrain': nomChefDeTrain,
       'numeroChefDeTrain': numeroChefDeTrain,
       'billetsControles': billetsControles,
-      'voyageursPremiereCl': voyageursPremiereCl, // Clé SQL
-      'voyageursSecondeCl': voyageursSecondeCl, // Clé SQL
+      'voyageursPremiereCl': voyageursPremiereCl,
+      'voyageursSecondeCl': voyageursSecondeCl,
       'comptageRabat': comptageRabat,
       'comptageTerminal': comptageTerminal,
       'typeService': typeService,
+      // Note : 'anomaliesDepart' est volontairement omis ici car il possède sa propre table SQL
     };
   }
 
+  // 📖 CONVERSION DEPUIS MAP : Réhydratation du modèle depuis SQLite
+  // On passe la Map de la table 'missions' et la liste récupérée de la table 'anomalies'
   factory MissionModel.fromMap(
     Map<String, dynamic> map,
     List<String> anomalies,
@@ -58,7 +62,7 @@ class MissionModel extends Mission {
       comptageRabat: (map['comptageRabat'] ?? 0) as int,
       comptageTerminal: (map['comptageTerminal'] ?? 0) as int,
       typeService: map['typeService'] ?? 'TRAIN NOMINAL',
-      anomaliesDepart: anomalies,
+      anomaliesDepart: anomalies, // Injection propre des anomalies issues de la table secondaire
     );
   }
 }

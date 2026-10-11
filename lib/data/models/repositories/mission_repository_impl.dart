@@ -1,19 +1,19 @@
+import 'package:movies_demo/core_utils/database/db_helper.dart';
 import 'package:movies_demo/data/models/mission_model.dart';
+import 'package:movies_demo/domain/entities/mission.dart';
+// 🔥 ON IMPORTE L'INTERFACE POUR POUVOIR L'IMPLÉMENTER
+import 'package:movies_demo/domain/repositories/mission_repository.dart';
 import 'package:sqflite/sqflite.dart';
 
-import '../../../core_utils/database/db_helper.dart';
-import '../../../domain/entities/mission.dart';
-import '../../../domain/repositories/mission_repository.dart';
-
+// 🟩 CORRECTION : On utilise "implements MissionRepository" pour lier les deux fichiers
 class MissionRepositoryImpl implements MissionRepository {
-  final DbHelper dbHelper = DbHelper();
+  final DbHelper _dbHelper = DbHelper();
 
   @override
-  Future<void> saveMission(Mission mission) async {
-    final db = await dbHelper.database;
+  Future<void> enregistrerMission(Mission mission) async {
+    final db = await _dbHelper.database;
 
-    // 🛡️ ALIGNEMENT DE TOUTES LES PROPRIÉTÉS EN FRANÇAIS : voyageursPremiereCl et voyageursSecondeCl
-    final model = MissionModel(
+    final missionModel = MissionModel(
       numeroTrain: mission.numeroTrain,
       date: mission.date,
       heureDepart: mission.heureDepart,
@@ -34,67 +34,59 @@ class MissionRepositoryImpl implements MissionRepository {
     await db.transaction((txn) async {
       await txn.insert(
         'missions',
-        model.toMap(),
+        missionModel.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+
       await txn.delete(
         'anomalies',
         where: 'numeroTrain = ?',
-        whereArgs: [model.numeroTrain],
+        whereArgs: [missionModel.numeroTrain],
       );
-      for (var anomalie in model.anomaliesDepart) {
-        await txn.insert('anomalies', {
-          'numeroTrain': model.numeroTrain,
-          'description': anomalie,
-        });
+
+      for (final anomalie in missionModel.anomaliesDepart) {
+        if (anomalie.trim().isNotEmpty) {
+          await txn.insert('anomalies', {
+            'numeroTrain': missionModel.numeroTrain,
+            'description': anomalie.trim(),
+          });
+        }
       }
     });
   }
 
   @override
-  Future<List<Mission>> getAllMissions() async {
-    final db = await dbHelper.database;
+  Future<MissionModel?> obtenirMissionParNumero(String numeroTrain) async {
+    final db = await _dbHelper.database;
 
-    // 🛡️ OPTIMISATION DU TRI : Tri par ID de ligne décroissant pour voir le dernier train saisi en premier
-    final List<Map<String, dynamic>> maps = await db.query(
+    final List<Map<String, dynamic>> mapsMissions = await db.query(
       'missions',
-      orderBy: 'rowid DESC',
+      where: 'numeroTrain = ?',
+      whereArgs: [numeroTrain],
     );
 
-    List<Mission> liste = [];
-    for (var map in maps) {
-      // 🛡️ ISOLATION EXPLICITE DE L'INDEX : Garantit que chaque clic charge le bon train sans écrasement
-      final String numTrainSpecifique = map['numeroTrain'].toString();
+    if (mapsMissions.isEmpty) return null;
 
-      final List<Map<String, dynamic>> anomalyMaps = await db.query(
-        'anomalies',
-        where: 'numeroTrain = ?',
-        whereArgs: [numTrainSpecifique],
-      );
+    final List<Map<String, dynamic>> mapsAnomalies = await db.query(
+      'anomalies',
+      where: 'numeroTrain = ?',
+      whereArgs: [numeroTrain],
+    );
 
-      List<String> anomalies = anomalyMaps
-          .map((l) => l['description'] as String)
-          .toList();
+    final List<String> listeAnomalies = mapsAnomalies
+        .map((row) => row['description'] as String)
+        .toList();
 
-      liste.add(MissionModel.fromMap(map, anomalies));
-    }
-    return liste;
+    return MissionModel.fromMap(mapsMissions.first, listeAnomalies);
   }
 
   @override
-  Future<void> deleteMission(String numeroTrain) async {
-    final db = await dbHelper.database;
-    await db.transaction((txn) async {
-      await txn.delete(
-        'anomalies',
-        where: 'numeroTrain = ?',
-        whereArgs: [numeroTrain],
-      );
-      await txn.delete(
-        'missions',
-        where: 'numeroTrain = ?',
-        whereArgs: [numeroTrain],
-      );
-    });
+  Future<void> supprimerMission(String numeroTrain) async {
+    final db = await _dbHelper.database;
+    await db.delete(
+      'missions',
+      where: 'numeroTrain = ?',
+      whereArgs: [numeroTrain],
+    );
   }
 }

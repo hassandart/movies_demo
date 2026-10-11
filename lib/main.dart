@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:movies_demo/data/models/repositories/mission_repository_impl.dart';
+import 'package:movies_demo/presentation/pages/ecran_accueil.dart';
 import 'package:provider/provider.dart';
 
 // 🛡️ RECTIFICATION DES CHEMINS : Utilisation des imports absolus package obligatoires pour lib/main.dart
 
 import 'package:movies_demo/presentation/providers/mission_provider.dart';
-import 'package:movies_demo/presentation/pages/ecran_saisie.dart';
 
 void main() {
   // Ligne essentielle pour s'assurer que sqflite s'initialise correctement sur le smartphone
@@ -32,7 +32,7 @@ class MonAppControlleurFinal extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Contrôleur Train Sync',
       // Démarre directement sur votre croquis adaptatif ONCF
-      home: EcranSaisiePremium(),
+      home: EcranAccueilDashboard(),
     );
   }
 }
