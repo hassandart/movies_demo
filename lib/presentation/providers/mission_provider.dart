@@ -1,62 +1,111 @@
 import 'package:flutter/material.dart';
+import 'package:movies_demo/core_utils/database/db_helper.dart';
+import 'package:movies_demo/data/models/mission_model.dart';
 
 import '../../domain/entities/mission.dart';
-import '../../domain/repositories/mission_repository.dart'; // Import de l'interface abstraite
+import '../../domain/repositories/mission_repository.dart'; // Import de l'interface
 
 class MissionProvider with ChangeNotifier {
-  // 🔑 Le référentiel utilise désormais l'interface abstraite (plus flexible)
+  // 🔑 Le référentiel requis par votre injecteur/main.dart
   final MissionRepository repository;
-  // 2️⃣ AJOUTEZ CE GETTER POUR LA LISTE DES MISSIONS :
-  List<Mission> get listeMissions =>
-      _missionActuelle != null ? [_missionActuelle!] : [];
 
-  // 🔥 CORRECTION : Définition du paramètre nommé requis par votre application
+  // 🚆 UNIFICATION DES ÉTATS : Une variable pour le formulaire, une liste pour l'accueil
+  Mission? _missionSelectionnee;
+  final List<Mission> _toutesLesMissions = [];
+
+  // 🔥 CORRECTION : Réintroduction du constructeur nommé obligatoire
   MissionProvider({required this.repository});
 
-  // 🚆 État local : stocke la mission actuellement sélectionnée
-  Mission? _missionActuelle;
+  // 📖 Getters publics
+  Mission? get missionActuelle => _missionSelectionnee;
+  List<Mission> get listeMissions => _toutesLesMissions;
 
-  // 📖 Getter public
-  Mission? get missionActuelle => _missionActuelle;
-
-  // 🔄 CHARGER UNE MISSION DEPUIS SQFLITE
-  Future<void> chargerMission(String numeroTrain) async {
+  // 🔄 CHARGER TOUTES LES MISSIONS DEPUIS SQLITE (Optionnel mais recommandé si implémenté dans votre repo)
+  // 🔄 CHARGER TOUTES LES MISSIONS DEPUIS SQLITE
+  Future<void> chargerToutesLesMissions() async {
     try {
-      _missionActuelle = await repository.obtenirMissionParNumero(numeroTrain);
-      notifyListeners();
+      // 🟩 CORRECTION : On va chercher toutes les missions dans SQLite
+      // Si vous n'avez pas encore créé de méthode globale "obtenirToutesLesMissions" dans votre Repository,
+      // voici comment réhydrater la liste locale depuis la base de données :
+      final db = await DbHelper().database;
+      final List<Map<String, dynamic>> maps = await db.query('missions');
+
+      _toutesLesMissions.clear(); // On vide pour éviter les doublons
+
+      for (var map in maps) {
+        final numeroTrain = map['numeroTrain'] as String;
+        // On récupère les anomalies associées pour chaque train
+        final List<Map<String, dynamic>> mapsAnomalies = await db.query(
+          'anomalies',
+          where: 'numeroTrain = ?',
+          whereArgs: [numeroTrain],
+        );
+        final List<String> listeAnomalies = mapsAnomalies
+            .map((row) => row['description'] as String)
+            .toList();
+
+        _toutesLesMissions.add(MissionModel.fromMap(map, listeAnomalies));
+      }
+
+      notifyListeners(); // 🔥 On prévient l'accueil d'afficher les éléments
     } catch (e) {
-      debugPrint("Erreur lors du chargement de la mission $numeroTrain : $e");
+      debugPrint("Erreur chargement liste depuis SQLite : $e");
     }
   }
 
-  // 💾 ENREGISTRER OU MODIFIER UNE MISSION
-  Future<void> enregistrerMission(Mission mission) async {
+  // 🔍 CHARGER UN TRAIN PRÉCIS (Pour l'écran détails/modification)
+  Future<void> chargerMission(String numeroTrain) async {
     try {
-      await repository.enregistrerMission(mission);
-      _missionActuelle = mission;
+      _missionSelectionnee = await repository.obtenirMissionParNumero(
+        numeroTrain,
+      );
       notifyListeners();
     } catch (e) {
-      debugPrint("Erreur lors de l'enregistrement de la mission : $e");
+      debugPrint("Erreur lors du chargement du train $numeroTrain : $e");
+    }
+  }
+
+  // 💾 ENREGISTRER SANS ÉCRASER LES AUTRES
+  Future<void> enregistrerMission(Mission mission) async {
+    try {
+      // 1. Écriture physique dans SQLite (via votre interface repository)
+      await repository.enregistrerMission(mission);
+
+      // 2. Mise à jour de la liste locale en mémoire pour que les items s'empilent
+      final index = _toutesLesMissions.indexWhere(
+        (m) => m.numeroTrain == mission.numeroTrain,
+      );
+      if (index != -1) {
+        _toutesLesMissions[index] = mission; // Mode Modification
+      } else {
+        _toutesLesMissions.add(mission); // Mode Nouvelle Saisie
+      }
+
+      _missionSelectionnee = mission;
+      notifyListeners(); // 🔥 Rafraîchit l'accueil pour afficher les trains les uns sous les autres
+    } catch (e) {
+      debugPrint("Erreur lors de l'enregistrement : $e");
       rethrow;
     }
   }
 
-  // ❌ SUPPRIMER UNE MISSION
+  // ❌ SUPPRIMER UN TRAIN DE LA LISTE
   Future<void> supprimerMission(String numeroTrain) async {
     try {
       await repository.supprimerMission(numeroTrain);
-      if (_missionActuelle?.numeroTrain == numeroTrain) {
-        _missionActuelle = null;
+      _toutesLesMissions.removeWhere((m) => m.numeroTrain == numeroTrain);
+      if (_missionSelectionnee?.numeroTrain == numeroTrain) {
+        _missionSelectionnee = null;
       }
       notifyListeners();
     } catch (e) {
-      debugPrint("Erreur lors de la suppression de la mission : $e");
+      debugPrint("Erreur suppression : $e");
     }
   }
 
-  // 1️⃣ REMPLACEZ reinitialiserMission() PAR :
+  // 🧹 Vider le formulaire pour une nouvelle saisie
   void reinitialiserSaisie() {
-    _missionActuelle = null;
+    _missionSelectionnee = null;
     notifyListeners();
   }
 }
