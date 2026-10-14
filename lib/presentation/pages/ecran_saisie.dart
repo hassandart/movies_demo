@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:movies_demo/domain/entities/mission.dart';
 import 'package:movies_demo/presentation/providers/mission_provider.dart';
 
-import 'ecran_accueil.dart'; // Vérifiez si c'est 'ecran_accueil.dart' ou 'ecran_accueil_dashboard.dart'
-
 class EcranSaisiePremium extends StatefulWidget {
   const EcranSaisiePremium({super.key});
 
@@ -17,6 +15,10 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   bool _estEnModeModification = false;
   String _numTrainOrigine = "";
   String _destinationChoisie = "";
+  String _gareComptageSelectionnee =
+      "KENITRA"; // Valeur par défaut au démarrage
+  String _confortSelectionne = "Premiere Classe";
+  // Valeur par défaut pour le Confort
 
   late TextEditingController _numTrainController;
   late TextEditingController _dateController;
@@ -26,6 +28,20 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   late TextEditingController _telephoneController;
   late TextEditingController _rameController;
   late TextEditingController _anomaliesController;
+  // 🔥 LES NOUVEAUX CONTRÔLEURS DE COMPTAGE À AJOUTER ICI :
+  late TextEditingController _billetsController;
+  // 🟩 REMPLACEZ PAR CE NOM PROPRE :
+  late TextEditingController _premiereClasseController;
+
+  late TextEditingController _rabatController;
+  late TextEditingController _terminalController;
+  // 🔥 DECIARATION DU DICTIONNAIRE GLOBAL AU BON ENDROIT :
+  final Map<String, String> _codesGaresONCF = {
+    "KENITRA": "250",
+    "CASA-PORT": "100",
+    "RABAT-VILLE": "320",
+    "SETTAT": "139",
+  };
 
   // 📊 Décompté et réactivé : Configuration de vos 4 boutons d'axes ONCF
   final List<Map<String, String>> _boutonsDestinations = [
@@ -77,6 +93,38 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
           ? ''
           : "${missionActuelle.voyageursSecondeCl}",
     );
+    // ... Vos initialisations de contrôleurs existants restent identiques ...
+    _telephoneController = TextEditingController(
+      text: missionActuelle?.numeroChefDeTrain ?? '',
+    );
+    _rameController = TextEditingController(
+      text: (missionActuelle == null || missionActuelle.voyageursSecondeCl == 0)
+          ? ''
+          : "${missionActuelle.voyageursSecondeCl}",
+    );
+
+    // 🔥 INITIALISATION DES NOUVEAUX CONTRÔLEURS DE COMPTAGE :
+    _billetsController = TextEditingController(
+      text: (missionActuelle == null || missionActuelle.billetsControles == 0)
+          ? ''
+          : "${missionActuelle.billetsControles}",
+    );
+    _premiereClasseController = TextEditingController(
+      text:
+          (missionActuelle == null || missionActuelle.voyageursPremiereCl == 0)
+          ? ''
+          : "${missionActuelle.voyageursPremiereCl}",
+    );
+    _rabatController = TextEditingController(
+      text: (missionActuelle == null || missionActuelle.comptageRabat == 0)
+          ? ''
+          : "${missionActuelle.comptageRabat}",
+    );
+    _terminalController = TextEditingController(
+      text: (missionActuelle == null || missionActuelle.comptageTerminal == 0)
+          ? ''
+          : "${missionActuelle.comptageTerminal}",
+    );
 
     if (_estEnModeModification) {
       _numTrainOrigine = missionActuelle!.numeroTrain;
@@ -86,6 +134,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
 
   @override
   void dispose() {
+    // Libération des contrôleurs de base
     _numTrainController.dispose();
     _dateController.dispose();
     _departController.dispose();
@@ -93,19 +142,29 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     _nomChefController.dispose();
     _telephoneController.dispose();
     _rameController.dispose();
-    _anomaliesController
-        .dispose(); // 🟩 CORRECTION : Libération du contrôleur d'anomalies
+    _anomaliesController.dispose();
+
+    // Libération des contrôleurs de comptage
+    _billetsController.dispose();
+    _premiereClasseController.dispose();
+    _rabatController.dispose();
+    _terminalController.dispose();
+
+    // Clôture native obligatoire
     super.dispose();
   }
 
   void _sauvegarderEtBasculerVersAccueil() async {
-    if (_formKey.currentState!.validate() && _destinationChoisie.isNotEmpty) {
-      // 🟩 CORRECTION : Capture et formatage dynamique de votre champ d'anomalies
+    final bool formulaireValide = _formKey.currentState!.validate();
+    final bool destinationValide = _destinationChoisie.isNotEmpty;
+
+    if (formulaireValide && destinationValide) {
       final texteAnomalies = _anomaliesController.text.trim();
       final List<String> listeAnomalies = texteAnomalies.isEmpty
           ? const []
           : [texteAnomalies];
 
+      // 🟩 ADAPTATION ET LIAISON DIRECTE AVEC VOTRE MODÈLE MISSION EXISTING
       final nouvelleMission = Mission(
         numeroTrain: _numTrainController.text.trim().isEmpty
             ? "0"
@@ -117,14 +176,22 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         gareArrivee: _destinationChoisie,
         nomChefDeTrain: _nomChefController.text.trim(),
         numeroChefDeTrain: _telephoneController.text.trim(),
-        anomaliesDepart:
-            listeAnomalies, // 🟩 CORRECTION : Liaison avec SQLite rétablie
-        billetsControles: 0,
-        voyageursPremiereCl: 0,
-        voyageursSecondeCl: int.tryParse(_rameController.text.trim()) ?? 0,
-        comptageRabat: 0,
-        comptageTerminal: 0,
-        typeService: "TRAIN NOMINAL",
+        anomaliesDepart: listeAnomalies,
+
+        // 📊 Liaison de vos nouveaux champs de comptage Honeywell :
+        billetsControles: int.tryParse(_billetsController.text.trim()) ?? 0,
+        voyageursSecondeCl:
+            int.tryParse(_rameController.text.trim()) ??
+            0, // Valeur estimée mappée sur la 2nde Classe
+        voyageursPremiereCl:
+            int.tryParse(_premiereClasseController.text.trim()) ??
+            0, // 0 par défaut ou lié si réactivé
+        comptageRabat: int.tryParse(_rabatController.text.trim()) ?? 0,
+        comptageTerminal: int.tryParse(_terminalController.text.trim()) ?? 0,
+
+        // On utilise ce champ textuel libre pour conserver la trace de la gare sélectionnée dans SQLite
+        typeService:
+            "GARE: $_gareComptageSelectionnee | CONFORT: $_confortSelectionne",
       );
 
       final missionProvider = Provider.of<MissionProvider>(
@@ -135,30 +202,34 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
       if (_estEnModeModification &&
           _numTrainOrigine != nouvelleMission.numeroTrain) {
         await missionProvider.supprimerMission(_numTrainOrigine);
+        if (!mounted) return; // Garde de sécurité contre l'async gap validé
       }
 
+      // Enregistrement dans SQLite via le Provider
       await missionProvider.enregistrerMission(nouvelleMission);
+
       if (!mounted) return;
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const EcranAccueilDashboard()),
-        (route) => false,
-      );
+      // 🏁 Fermeture fluide du formulaire vers l'accueil (Zéro doublon visuel)
+      Navigator.of(context).pop();
     }
   }
 
   // 🎨 FONCTION DE GRAPHISME : Les champs standards équipés de leur LIGNE JAUNE
   Widget _buildStandardField({
     required TextEditingController controller,
-    required IconData icone, // Paramètre requis validé
+    required IconData icone,
     String? label,
     String? hintText,
     bool lectureSeule = false,
     bool estNumerique = false,
+    ValueChanged<String>?
+    onChanged, // 🟩 AJOUTÉ : Permet de capter les changements de texte
   }) {
     return TextFormField(
       controller: controller,
       readOnly: lectureSeule,
+      onChanged: onChanged, // 🟩 CONNECTÉ : Le champ écoute désormais le doigt de l'agent
       keyboardType: estNumerique ? TextInputType.number : TextInputType.text,
       style: const TextStyle(
         color: Color(0xFF2C3E50),
@@ -183,12 +254,11 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
           vertical: 14,
         ),
 
-        // 🔥 Ligne jaune ONCF par défaut sous le champ blanc
+        // Lignes Jaunes ONCF
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFFFC400), width: 2.0),
         ),
-        // 🔥 Ligne jaune plus épaisse lors du clic
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFFFC400), width: 3.0),
@@ -256,36 +326,8 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     );
   }
 
-  // 🎨 FONCTION DE GRAPHISME : Le bandeau d'affichage publicitaire / informatif requis
   Widget _buildEcranAccueilPublicitaire() {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFC400).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFFFC400),
-          width: 1.5,
-        ), // Encadrement jaune
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.info_outline_rounded, color: Color(0xFFFFC400), size: 22),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              "Note Brigade : S'assurer de la présence des kits de sécurité avant le départ de Casa-Port.",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 8.0));
   }
 
   // 🎨 FONCTION DE GRAPHISME : Le conteneur de carte blanche
@@ -422,35 +464,234 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
               ),
             ]),
             const SizedBox(height: 16),
-            // 📅 3. SECONDE CARTE BLANCHE CONTENANT LA DATE ET LES HEURES
+
+            // 🟩 ET METTEZ À LA PLACE VOTRE COUPLAGE EXACT DOUBLE COLONNE :
             _buildCardContainer([
-              _buildStandardField(
-                controller: _dateController,
-                icone: Icons.calendar_today_rounded,
-                label: "Date",
-                lectureSeule: true,
+              const Text(
+                "DONNÉES DE COMPTAGE & CONTRÔLES",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                  letterSpacing: 0.5,
+                ),
               ),
               const SizedBox(height: 12),
+
+              // 🟩 ROW PRINCIPALE AVEC SÉCURITÉ VERTICALE ALIGNÉE SUR LE HAUT
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start, // Aligne le haut des colonnes pour éviter les décalages
                 children: [
+                  // ==========================================
+                  // ⬅️ COLONNE 1 : À GAUCHE (CODE + BILLETS CONTRÔLÉS)
+                  // ==========================================
                   Expanded(
-                    child: _buildStandardField(
-                      controller: _departController,
-                      icone: Icons.access_time_rounded,
-                      label: "Heure Départ",
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1. L'affichage du Code de gare automatique (Hauteur calée sur 52px pour la symétrie)
+                        Container(
+                          width: double.infinity,
+                          height: 52,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8F9FA),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFFFC400),
+                              width: 2.0,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                "Code",
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                _codesGaresONCF[_gareComptageSelectionnee] ??
+                                    "000",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF2C3E50),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // 2. Saisie du nombre de Billets Contrôlés
+                        _buildStandardField(
+                          controller: _billetsController,
+                          icone: Icons.confirmation_number_rounded,
+                          label: "Billets Contr.", // Libellé légèrement raccourci pour éviter l'overflow de texte
+                          estNumerique: true,
+                          onChanged: (val) => setState(() {}),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
+
+                  const SizedBox(
+                    width: 10,
+                  ), // Espace de séparation central optimisé
+                  // ==========================================
+                  // ➡️ COLONNE 2 : À DROITE (GARES + CLASSES + ESTIMATION)
+                  // ==========================================
                   Expanded(
-                    child: _buildStandardField(
-                      controller: _arriveeController,
-                      icone: Icons.update_rounded,
-                      label: "Heure Arrivée",
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1. Menu déroulant pour la Gare (Hauteur interne optimisée via contentPadding)
+                        DropdownButtonFormField<String>(
+                          value: _gareComptageSelectionnee,
+                          dropdownColor: Colors.white,
+                          isExpanded: true, // 🔥 FORCE LE TEXTE À RESTER DANS LES LIMITES DE LA COLONNE
+                          icon: const Icon(
+                            Icons.arrow_drop_down,
+                            color: Colors.orange,
+                            size: 22,
+                          ),
+                          style: const TextStyle(
+                            color: Color(0xFF2C3E50),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Gare Départ/Arrivée",
+                            labelStyle: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 10,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ), // Padding réduit anti-overflow
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFFC400),
+                                width: 2.0,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFFC400),
+                                width: 3.0,
+                              ),
+                            ),
+                          ),
+                          items: _codesGaresONCF.keys.map((String gare) {
+                            return DropdownMenuItem<String>(
+                              value: gare,
+                              child: Text(gare, overflow: TextOverflow.ellipsis), // Coupe proprement si le nom de la gare est trop long
+                            );
+                          }).toList(),
+                          onChanged: (String? nouvelleGare) {
+                            if (nouvelleGare != null) {
+                              setState(() {
+                                _gareComptageSelectionnee = nouvelleGare;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // 2. Menu déroulant pour le Confort (1ère / 2nde Classe)
+                        DropdownButtonFormField<String>(
+                          value: _confortSelectionne,
+                          dropdownColor: Colors.white,
+                          isExpanded: true, // 🔥 Évite l'overflow horizontal à l'ouverture
+                          icon: const Icon(
+                            Icons.arrow_drop_down,
+                            color: Colors.orange,
+                            size: 22,
+                          ),
+                          style: const TextStyle(
+                            color: Color(0xFF2C3E50),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Classe Confort",
+                            labelStyle: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 10,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFFC400),
+                                width: 2.0,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFFC400),
+                                width: 3.0,
+                              ),
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem<String>(
+                              value: "Premiere Classe",
+                              child: Text(
+                                "1ère Classe",
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DropdownMenuItem<String>(
+                              value: "Deuxieme Classe",
+                              child: Text(
+                                "2nde Classe",
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                          onChanged: (String? nouvelleValeurConfort) {
+                            if (nouvelleValeurConfort != null) {
+                              setState(() {
+                                _confortSelectionne = nouvelleValeurConfort;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // 3. Saisie de la Valeur Estimée
+                        _buildStandardField(
+                          controller: _rameController,
+                          icone: Icons.edit_attributes_rounded,
+                          label: "Valeur estimée",
+                          hintText: "Estimation...",
+                          estNumerique: true,
+                          onChanged: (val) => setState(() {}),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ]),
+
             const SizedBox(height: 24),
             // ⚠️ 4. LE GRAND BLOC ANOMALIES AUTONOME (Dessiné sous les cartes)
             const Text(

@@ -288,73 +288,117 @@ class EcranDetailsMission extends StatelessWidget {
               ),
             ),
 
-            // 🎛️ BARRÈ D'ACTIONS D'OPTIONS FIXE TOUT EN BAS (Design Premium)
+            // 🎛️ NOUVELLE BARRE D'ACTIONS FLOTTANTE PREMIUM (TOUT EN BAS DE L'ÉCRAN)
             Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  // Bouton Partager (Bleu)
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _partagerMission(context, mission),
-                      icon: const Icon(Icons.share_rounded, size: 18),
-                      label: const Text("Partager"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2980B9),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+              padding: const EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: 24,
+                top: 12,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors
+                    .transparent, // Translucide pour laisser flotter la barre
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(
+                    24,
+                  ), // Coins très arrondis style capsule
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // 📤 BOUTON PARTAGER : Version circulaire épurée (Bleu ONCF)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2980B9).withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.share_rounded,
+                          color: Color(0xFF2980B9),
+                          size: 22,
                         ),
+                        onPressed: () => _partagerMission(context, mission),
+                        tooltip: "Partager le rapport",
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 12),
 
-                  // Bouton Modifier (Orange)
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        // En mode modification, la mission actuelle est déjà chargée dans le Provider
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const EcranSaisiePremium(),
+                    // ✏️ BOUTON MODIFIER : L'action principale prend toute la longueur centrale (Bouton Pilule)
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const EcranSaisiePremium(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.edit_road_rounded, size: 18),
+                          label: const Text(
+                            "MODIFIER LA MISSION",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.edit_rounded, size: 18),
-                      label: const Text("Modifier"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(
+                              0xFFFFC400,
+                            ), // Jaune ONCF lumineux
+                            foregroundColor: const Color(
+                              0xFF2C3E50,
+                            ), // Texte sombre pour un contraste parfait
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 12),
 
-                  // Bouton Supprimer (Rouge)
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _confirmerSuppression(
-                        context,
-                        missionProvider,
-                        mission.numeroTrain,
+                    // ❌ BOUTON SUPPRIMER : Version circulaire alerte (Rouge épuré)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
                       ),
-                      icon: const Icon(Icons.delete_forever_rounded, size: 18),
-                      label: const Text("Effacer"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: Colors.redAccent,
+                          size: 22,
                         ),
+                        onPressed: () => _confirmerSuppression(
+                          context,
+                          missionProvider,
+                          mission.numeroTrain,
+                        ),
+                        tooltip: "Effacer la mission",
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
