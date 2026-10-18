@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movies_demo/presentation/pages/ecran_saisie.dart';
+
 import 'package:provider/provider.dart';
 import 'package:movies_demo/domain/entities/mission.dart';
 import 'package:movies_demo/presentation/providers/mission_provider.dart';
@@ -7,7 +8,7 @@ import 'package:movies_demo/presentation/providers/mission_provider.dart';
 class EcranDetailsMission extends StatelessWidget {
   const EcranDetailsMission({super.key});
 
-  // 🎨 WIDGET PERSONNALISÉ : Bloc d'information avec ligne jaune ONCF
+  // 🧱 WIDGET 1 : Le moule standard pour les cartes Voyage et Horaires / Anomalies
   Widget _buildSectionDetail({
     required String titre,
     required List<Widget> elements,
@@ -20,7 +21,10 @@ class EcranDetailsMission extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: const Border(
-          left: BorderSide(color: Color(0xFFFFC400), width: 4),
+          left: BorderSide(
+            color: Color(0xFFFFC400),
+            width: 4,
+          ), // Ligne Jaune ONCF
         ),
         boxShadow: [
           BoxShadow(
@@ -49,6 +53,7 @@ class EcranDetailsMission extends StatelessWidget {
     );
   }
 
+  // 🧱 WIDGET 2 : Le moule pour écrire une ligne simple d'information (icône + texte)
   Widget _buildLigneInfo(IconData icon, String cle, String valeur) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5.0),
@@ -75,6 +80,188 @@ class EcranDetailsMission extends StatelessWidget {
     );
   }
 
+  // 🟩 WIDGET 3 : VOTRE CONTENEUR REARCHITECTURÉ (Casa-Port à gauche, les Gares à droite)
+  Widget _buildBilanGlobalFerroviaire({
+    required int totalBilletsCasa,
+    required List<Widget> garesIntermediaires,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "EXPLOITATION & BILAN DES COMPTAGES",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ⬅️ SECTION GAUCHE : CASA-PORT AVEC SES BILLETS CONTRÔLÉS (BC)
+              Container(
+                width: 95,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 20,
+                  horizontal: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC400).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFFFC400),
+                    width: 2.0,
+                  ), // Ligne Jaune ONCF
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.train_rounded,
+                      color: Color(0xFF7D6608),
+                      size: 22,
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "CASA-PORT",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF7D6608),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      "BC TOTAL",
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "$totalBilletsCasa", // Reçoit dynamiquement le volume SQLite
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF2C3E50),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // ➡️ SECTION DROITE : LES CASES DE GARES INTERMÉDIAIRES
+              Expanded(child: Column(children: garesIntermediaires)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🟩 WIDGET 4 : Le sous-moule compact pour chaque gare à droite (1ère / 2nde classe)
+  Widget _buildCaseGareVoyageurs({
+    required String nomGare,
+    required int qte1ere,
+    required int qte2nde,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.all(10.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E8E8), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            nomGare.toUpperCase(),
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF2C3E50),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              // Badge 1ère classe
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFFFFC400),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    "1ère : $qte1ere",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF7D6608),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Badge 2nde classe
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF2980B9),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    "2nde : $qte2nde",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1B4F72),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   // 💾 LOGIQUE : Fonction de simulation du partage de rapport de brigade
   void _partagerMission(BuildContext context, Mission mission) {
     final String texteRapport =
@@ -82,14 +269,10 @@ class EcranDetailsMission extends StatelessWidget {
 🚆 RAPPORT DE BRIGADE ONCF - TRAIN ${mission.numeroTrain}
 📅 Date : ${mission.date} | Parcours : ${mission.itineraireComplet}
 👤 Chef de train : ${mission.nomChefDeTrain}
-📊 Comptages Voyageurs :
-- 1ère Classe : ${mission.voyageursPremiereCl} | 2nde Classe : ${mission.voyageursSecondeCl}
-- Comptage Rabat : ${mission.comptageRabat} | Terminal : ${mission.comptageTerminal}
-- Billets Contrôlés : ${mission.billetsControles}
+📊 Billets Contrôlés : ${mission.billetsControles}
 ⚠️ Anomalies constatées : ${mission.anomaliesDepart.isEmpty ? "Aucune" : mission.anomaliesDepart.join(", ")}
     """;
 
-    // Affichage d'un aperçu du partage sur le portable
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text(
@@ -119,7 +302,7 @@ class EcranDetailsMission extends StatelessWidget {
     );
   }
 
-  // ❌ LOGIQUE : Boîte de dialogue de confirmation avant suppression SQLite
+  // ❌ LOGIQUE : Confirmation de suppression
   void _confirmerSuppression(
     BuildContext context,
     MissionProvider provider,
@@ -139,12 +322,10 @@ class EcranDetailsMission extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(ctx); // Ferme le dialogue
-              await provider.supprimerMission(
-                numeroTrain,
-              ); // Supprime des deux tables
+              Navigator.pop(ctx);
+              await provider.supprimerMission(numeroTrain);
               if (!context.mounted) return;
-              Navigator.pop(context); // Revient à l'accueil
+              Navigator.pop(context);
             },
             child: const Text(
               "SUPPRIMER",
@@ -177,17 +358,23 @@ class EcranDetailsMission extends StatelessWidget {
         backgroundColor: const Color(0xFF2980B9),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_rounded),
+            onPressed: () => _partagerMission(context, mission),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // 📜 ZONE D'INFORMATION DÉFILANTE
             Expanded(
               child: ListView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.all(16),
+                // 🔥 SÉCURITÉ COMPILATION : Aucun mot-clé const n'est écrit devant ce tableau d'enfants !
                 children: [
-                  // Secteur 1 : Horaires & Trajet
+                  // 1️⃣ SECTEUR 1 : Voyage et Horaires
                   _buildSectionDetail(
                     titre: "Voyage et Horaires",
                     elements: [
@@ -226,179 +413,135 @@ class EcranDetailsMission extends StatelessWidget {
                       ),
                     ],
                   ),
-
-                  // Secteur 2 : VARIABLES DE COMPTAGE ONCF
+                  // 2️⃣ SECTEUR 2 : Brigade Ferroviaire (Conservé et bien ordonné)
                   _buildSectionDetail(
-                    titre: "Comptages & Statistiques Brigade",
+                    titre: "Brigade Ferroviaire",
                     elements: [
                       _buildLigneInfo(
-                        Icons.confirmation_number_rounded,
-                        "Billets Contrôlés",
-                        "${mission.billetsControles}",
+                        Icons.person,
+                        "Chef de Train",
+                        mission.nomChefDeTrain,
                       ),
                       _buildLigneInfo(
-                        Icons.looks_one_rounded,
-                        "Voyageurs 1ère Classe",
-                        "${mission.voyageursPremiereCl}",
-                      ),
-                      _buildLigneInfo(
-                        Icons.looks_two_rounded,
-                        "Voyageurs 2nde Classe",
-                        "${mission.voyageursSecondeCl}",
-                      ),
-                      _buildLigneInfo(
-                        Icons.stacked_bar_chart,
-                        "Comptage Rabat",
-                        "${mission.comptageRabat}",
-                      ),
-                      _buildLigneInfo(
-                        Icons.pin_drop,
-                        "Comptage Terminal",
-                        "${mission.comptageTerminal}",
+                        Icons.pin_rounded,
+                        "N° Rame Matériel",
+                        mission.comptageTerminal == 0
+                            ? "Non renseigné"
+                            : "${mission.comptageTerminal}",
                       ),
                     ],
                   ),
-
-                  // Secteur 3 : Anomalies
+                  // =========================================================================
+                  // 3️⃣ SECTEUR 3 : LE CONTENEUR D'OUTPUT EXACT DE L'IMAGE (CASA VS ARRÊTS 1/2 CL)
+                  // =========================================================================
+                  _buildBilanGlobalFerroviaire(
+                    totalBilletsCasa: mission.billetsControles,
+                    garesIntermediaires: [
+                      _buildCaseGareVoyageurs(
+                        nomGare: "Rabat Agdal",
+                        qte1ere: mission.voyageursPremiereCl,
+                        qte2nde: mission.voyageursSecondeCl,
+                      ),
+                      _buildCaseGareVoyageurs(
+                        nomGare: "Kénitra",
+                        qte1ere: mission.comptageRabat,
+                        qte2nde: mission.voyageursSecondeCl,
+                      ),
+                    ],
+                  ),
+                  // 4️⃣ SECTEUR 4 : Incidents & Observations
                   _buildSectionDetail(
-                    titre: "Anomalies au départ",
-                    elements: mission.anomaliesDepart.isEmpty
-                        ? [
-                            const Text(
-                              "✅ Aucune anomalie signalée au départ",
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ]
-                        : mission.anomaliesDepart
-                              .map(
-                                (anomalie) => Text(
-                                  "• $anomalie",
-                                  style: const TextStyle(
-                                    color: Color(0xFF2C3E50),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                    titre: "Incidents & Observations",
+                    elements: [
+                      Text(
+                        mission.anomaliesDepart.isEmpty
+                            ? "Aucune anomalie constatée au départ."
+                            : mission.anomaliesDepart.join("\n"),
+                        style: const TextStyle(
+                          color: Color(0xFF566573),
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-
-            // 🎛️ NOUVELLE BARRE D'ACTIONS FLOTTANTE PREMIUM (TOUT EN BAS DE L'ÉCRAN)
+            // 🛠️ BARRE DE BOUTONS INFÉRIEURE
             Container(
-              padding: const EdgeInsets.only(
-                left: 20,
-                right: 20,
-                bottom: 24,
-                top: 12,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors
-                    .transparent, // Translucide pour laisser flotter la barre
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(
-                    24,
-                  ), // Coins très arrondis style capsule
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    // 📤 BOUTON PARTAGER : Version circulaire épurée (Bleu ONCF)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2980B9).withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+              padding: const EdgeInsets.all(16),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _confirmerSuppression(
+                        context,
+                        missionProvider,
+                        mission.numeroTrain,
                       ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.share_rounded,
-                          color: Color(0xFF2980B9),
-                          size: 22,
+                      icon: const Icon(
+                        Icons.delete_sweep_rounded,
+                        color: Colors.redAccent,
+                      ),
+                      label: const Text(
+                        "EFFACER",
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
                         ),
-                        onPressed: () => _partagerMission(context, mission),
-                        tooltip: "Partager le rapport",
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.redAccent),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-
-                    // ✏️ BOUTON MODIFIER : L'action principale prend toute la longueur centrale (Bouton Pilule)
-                    Expanded(
-                      child: SizedBox(
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context)
+                            .push(
                               MaterialPageRoute(
                                 builder: (context) =>
                                     const EcranSaisiePremium(),
                               ),
-                            );
-                          },
-                          icon: const Icon(Icons.edit_road_rounded, size: 18),
-                          label: const Text(
-                            "MODIFIER LA MISSION",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(
-                              0xFFFFC400,
-                            ), // Jaune ONCF lumineux
-                            foregroundColor: const Color(
-                              0xFF2C3E50,
-                            ), // Texte sombre pour un contraste parfait
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
+                            )
+                            .then((_) {
+                              if (context.mounted) {
+                                missionProvider.chargerMission(
+                                  mission.numeroTrain,
+                                );
+                              }
+                            });
+                      },
+                      icon: const Icon(
+                        Icons.edit_road_rounded,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        "MODIFIER",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFC400),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 2,
                       ),
                     ),
-                    const SizedBox(width: 12),
-
-                    // ❌ BOUTON SUPPRIMER : Version circulaire alerte (Rouge épuré)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline_rounded,
-                          color: Colors.redAccent,
-                          size: 22,
-                        ),
-                        onPressed: () => _confirmerSuppression(
-                          context,
-                          missionProvider,
-                          mission.numeroTrain,
-                        ),
-                        tooltip: "Effacer la mission",
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

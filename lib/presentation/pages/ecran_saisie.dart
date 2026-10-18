@@ -19,6 +19,8 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
       "KENITRA"; // Valeur par défaut au démarrage
   String _confortSelectionne = "Premiere Classe";
   // Valeur par défaut pour le Confort
+  int _comptageTemporaire1ere = 0;
+  int _comptageTemporaire2nde = 0;
 
   late TextEditingController _numTrainController;
   late TextEditingController _dateController;
@@ -27,6 +29,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   late TextEditingController _nomChefController;
   late TextEditingController _telephoneController;
   late TextEditingController _rameController;
+
   late TextEditingController _anomaliesController;
   // 🔥 LES NOUVEAUX CONTRÔLEURS DE COMPTAGE À AJOUTER ICI :
   late TextEditingController _billetsController;
@@ -35,10 +38,14 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
 
   late TextEditingController _rabatController;
   late TextEditingController _terminalController;
+
+  // 🔥 AJOUTEZ CETTE LIGNE DÉFINITIVE ICI :
+  late TextEditingController _valeurEstimeeController;
+
   // 🔥 DECIARATION DU DICTIONNAIRE GLOBAL AU BON ENDROIT :
   final Map<String, String> _codesGaresONCF = {
     "KENITRA": "250",
-    "CASA-PORT": "100",
+    "CASA-PORT": "201",
     "RABAT-VILLE": "320",
     "SETTAT": "139",
   };
@@ -50,7 +57,6 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     {"label": "S", "nom": "SETTAT", "code": "139"},
     {"label": "A", "nom": "AÉROPORT MED V", "code": "190"},
   ];
-
   @override
   void initState() {
     super.initState();
@@ -58,7 +64,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     final missionActuelle = context.read<MissionProvider>().missionActuelle;
     _estEnModeModification = missionActuelle != null;
 
-    // 🔥 Initialisation immédiate pour éviter le LateInitializationError
+    // 1. 🔥 Initialisation immédiate anti LateInitializationError
     _anomaliesController = TextEditingController(
       text:
           (missionActuelle != null &&
@@ -70,6 +76,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     final String dateFormatee =
         "${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}";
 
+    // 2. Initialisation linéaire des contrôleurs de base
     _numTrainController = TextEditingController(
       text: missionActuelle?.numeroTrain ?? '',
     );
@@ -88,48 +95,59 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     _telephoneController = TextEditingController(
       text: missionActuelle?.numeroChefDeTrain ?? '',
     );
-    _rameController = TextEditingController(
-      text: (missionActuelle == null || missionActuelle.voyageursSecondeCl == 0)
-          ? ''
-          : "${missionActuelle.voyageursSecondeCl}",
-    );
-    // ... Vos initialisations de contrôleurs existants restent identiques ...
-    _telephoneController = TextEditingController(
-      text: missionActuelle?.numeroChefDeTrain ?? '',
-    );
-    _rameController = TextEditingController(
-      text: (missionActuelle == null || missionActuelle.voyageursSecondeCl == 0)
-          ? ''
-          : "${missionActuelle.voyageursSecondeCl}",
-    );
 
-    // 🔥 INITIALISATION DES NOUVEAUX CONTRÔLEURS DE COMPTAGE :
+    // 🟩 INITIALISATION CRUCIALE : Rame et Voyageurs partent sur des boîtes indépendantes dès le départ
+    _rameController = TextEditingController(text: '');
+    _valeurEstimeeController = TextEditingController(
+      text: '',
+    ); // Initialisé proprement dès la racine
+    _premiereClasseController = TextEditingController(text: '');
+
+    // 3. Initialisation du contrôleur de Billets (Ligne 4 du formulaire vertical)
     _billetsController = TextEditingController(
       text: (missionActuelle == null || missionActuelle.billetsControles == 0)
           ? ''
           : "${missionActuelle.billetsControles}",
     );
-    _premiereClasseController = TextEditingController(
-      text:
-          (missionActuelle == null || missionActuelle.voyageursPremiereCl == 0)
-          ? ''
-          : "${missionActuelle.voyageursPremiereCl}",
-    );
-    _rabatController = TextEditingController(
-      text: (missionActuelle == null || missionActuelle.comptageRabat == 0)
-          ? ''
-          : "${missionActuelle.comptageRabat}",
-    );
-    _terminalController = TextEditingController(
-      text: (missionActuelle == null || missionActuelle.comptageTerminal == 0)
-          ? ''
-          : "${missionActuelle.comptageTerminal}",
-    );
+    _rabatController = TextEditingController(text: '');
+    _terminalController = TextEditingController(text: '');
 
+    // 4. 🔄 Tri intelligent et réhydratation pour le mode modification Honeywell
     if (_estEnModeModification) {
       _numTrainOrigine = missionActuelle!.numeroTrain;
       _destinationChoisie = missionActuelle.gareArrivee;
+
+      // RECHARGEMENT DU N° RAME : Écrase le texte vide par la vraie valeur SQLite
+      _rameController.text = missionActuelle.comptageTerminal == 0
+          ? ''
+          : "${missionActuelle.comptageTerminal}";
+
+      // Extraction de la gare et du confort depuis la chaîne typeService
+      if (missionActuelle.typeService.contains("GARE:")) {
+        final List<String> parties = missionActuelle.typeService.split("|");
+        _gareComptageSelectionnee = parties[0].replaceAll("GARE:", "").trim();
+        _confortSelectionne = parties[1].replaceAll("CONFORT:", "").trim();
+      } else {
+        _gareComptageSelectionnee = "KENITRA";
+        _confortSelectionne = "Premiere Classe";
+      }
+
+      // 🟩 RECHARGEMENT DE LA VALEUR ESTIMÉE : Assigne directement la valeur sur le bon contrôleur
+      if (_confortSelectionne == "Premiere Classe") {
+        _valeurEstimeeController.text = missionActuelle.voyageursPremiereCl == 0
+            ? ''
+            : "${missionActuelle.voyageursPremiereCl}";
+      } else {
+        _valeurEstimeeController.text = missionActuelle.voyageursSecondeCl == 0
+            ? ''
+            : "${missionActuelle.voyageursSecondeCl}";
+      }
+    } else {
+      // ☀️ SÉCURITÉ DU MATIN (Nouveau trajet vierge)
+      _gareComptageSelectionnee = "KENITRA";
+      _confortSelectionne = "Premiere Classe";
     }
+    // 🟩 EFFACEMENT DE LA RÉINITIALISATION PARASITE DE FIN : Le circuit reste ouvert !
   }
 
   @override
@@ -164,7 +182,34 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
           ? const []
           : [texteAnomalies];
 
-      // 🟩 ADAPTATION ET LIAISON DIRECTE AVEC VOTRE MODÈLE MISSION EXISTING
+      // 🧮 LECTURE DES ENTRÉES VERTICALES SÉPARÉES
+      final String numeroRameSaisi = _rameController.text.trim();
+      final int billetsSaisis =
+          int.tryParse(_billetsController.text.trim()) ?? 0;
+      // final int chiffreEstime =
+      //     int.tryParse(_valeurEstimeeController.text.trim()) ?? 0;
+
+      final missionProvider = Provider.of<MissionProvider>(
+        context,
+        listen: false,
+      );
+      // final missionExistante = missionProvider.missionActuelle;
+
+      // int total1ere = (missionExistante != null)
+      //     ? missionExistante.voyageursPremiereCl
+      //     : 0;
+      // int total2nde = (missionExistante != null)
+      //     ? missionExistante.voyageursSecondeCl
+      //     : 0;
+
+      // // Tri intelligent selon le Confort sélectionné dans la 2ème liste déroulante
+      // if (_confortSelectionne == "Premiere Classe") {
+      //   total1ere = chiffreEstime;
+      // } else {
+      //   total2nde = chiffreEstime;
+      // }
+
+      // Assemblage de l'objet Mission pour SQLite
       final nouvelleMission = Mission(
         numeroTrain: _numTrainController.text.trim().isEmpty
             ? "0"
@@ -175,42 +220,33 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         gareDepart: "CASA-PORT",
         gareArrivee: _destinationChoisie,
         nomChefDeTrain: _nomChefController.text.trim(),
-        numeroChefDeTrain: _telephoneController.text.trim(),
+        numeroChefDeTrain: _telephoneController.text.trim(), // Téléphone isolé
         anomaliesDepart: listeAnomalies,
 
-        // 📊 Liaison de vos nouveaux champs de comptage Honeywell :
-        billetsControles: int.tryParse(_billetsController.text.trim()) ?? 0,
-        voyageursSecondeCl:
-            int.tryParse(_rameController.text.trim()) ??
-            0, // Valeur estimée mappée sur la 2nde Classe
-        voyageursPremiereCl:
-            int.tryParse(_premiereClasseController.text.trim()) ??
-            0, // 0 par défaut ou lié si réactivé
-        comptageRabat: int.tryParse(_rabatController.text.trim()) ?? 0,
-        comptageTerminal: int.tryParse(_terminalController.text.trim()) ?? 0,
+        // 📊 Enregistrement dans les vraies colonnes SQLite correspondantes
+        billetsControles: billetsSaisis, // Nb de billets saisis à la ligne 4
+        // 🟩 LA RECONNEXION : On associe vos miroirs qui survivent au .clear() du menu déroulant
+        voyageursPremiereCl: _comptageTemporaire1ere, // 🔥 Connecté, l'avertissement Dart s'efface !
+        voyageursSecondeCl: _comptageTemporaire2nde, // 🔥 Connecté
 
-        // On utilise ce champ textuel libre pour conserver la trace de la gare sélectionnée dans SQLite
+        comptageRabat: billetsSaisis, // Duplication de sauvegarde pour Kénitra (Simulation arrêt)
+        // Stockage sécurisé du N° Rame Matériel (Ligne du haut)
+        comptageTerminal: int.tryParse(numeroRameSaisi) ?? 0,
+
+        // Métadonnées d'aiguillage de la gare (Ligne 2) et du confort (Ligne 3)
         typeService:
             "GARE: $_gareComptageSelectionnee | CONFORT: $_confortSelectionne",
-      );
-
-      final missionProvider = Provider.of<MissionProvider>(
-        context,
-        listen: false,
       );
 
       if (_estEnModeModification &&
           _numTrainOrigine != nouvelleMission.numeroTrain) {
         await missionProvider.supprimerMission(_numTrainOrigine);
-        if (!mounted) return; // Garde de sécurité contre l'async gap validé
+        if (!mounted) return;
       }
 
-      // Enregistrement dans SQLite via le Provider
       await missionProvider.enregistrerMission(nouvelleMission);
 
       if (!mounted) return;
-
-      // 🏁 Fermeture fluide du formulaire vers l'accueil (Zéro doublon visuel)
       Navigator.of(context).pop();
     }
   }
@@ -229,7 +265,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     return TextFormField(
       controller: controller,
       readOnly: lectureSeule,
-      onChanged: onChanged, // 🟩 CONNECTÉ : Le champ écoute désormais le doigt de l'agent
+      onChanged: onChanged,
       keyboardType: estNumerique ? TextInputType.number : TextInputType.text,
       style: const TextStyle(
         color: Color(0xFF2C3E50),
@@ -552,7 +588,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                       children: [
                         // 1. Menu déroulant pour la Gare (Hauteur interne optimisée via contentPadding)
                         DropdownButtonFormField<String>(
-                          value: _gareComptageSelectionnee,
+                          initialValue: _gareComptageSelectionnee,
                           dropdownColor: Colors.white,
                           isExpanded: true, // 🔥 FORCE LE TEXTE À RESTER DANS LES LIMITES DE LA COLONNE
                           icon: const Icon(
@@ -609,31 +645,32 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                         const SizedBox(height: 12),
 
                         // 2. Menu déroulant pour le Confort (1ère / 2nde Classe)
+                        // 3️⃣ LIGNE 3 : Deuxième Liste Déroulante - Classe Confort (1ère et 2nde)
                         DropdownButtonFormField<String>(
-                          value: _confortSelectionne,
+                          initialValue: _confortSelectionne,
                           dropdownColor: Colors.white,
-                          isExpanded: true, // 🔥 Évite l'overflow horizontal à l'ouverture
+                          isExpanded: true,
                           icon: const Icon(
                             Icons.arrow_drop_down,
                             color: Colors.orange,
-                            size: 22,
+                            size: 24,
                           ),
                           style: const TextStyle(
                             color: Color(0xFF2C3E50),
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
                           decoration: InputDecoration(
                             labelText: "Classe Confort",
                             labelStyle: const TextStyle(
                               color: Colors.grey,
-                              fontSize: 10,
+                              fontSize: 12,
                             ),
                             filled: true,
                             fillColor: Colors.white,
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
+                              horizontal: 12,
+                              vertical: 12,
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -653,37 +690,48 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                           items: const [
                             DropdownMenuItem<String>(
                               value: "Premiere Classe",
-                              child: Text(
-                                "1ère Classe",
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: Text("1ère Classe"),
                             ),
                             DropdownMenuItem<String>(
                               value: "Deuxieme Classe",
-                              child: Text(
-                                "2nde Classe",
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: Text("2nde Classe"),
                             ),
                           ],
-                          onChanged: (String? nouvelleValeurConfort) {
-                            if (nouvelleValeurConfort != null) {
+                          onChanged: (nouveauConfort) {
+                            if (nouveauConfort != null) {
                               setState(() {
-                                _confortSelectionne = nouvelleValeurConfort;
+                                _confortSelectionne = nouveauConfort;
+
+                                // 🔥 LA MAGIE OPÈRE ICI : Vide instantanément la case d'estimation
+                                // pour laisser la place nette au prochain comptage de l'agent !
+                                _valeurEstimeeController.clear();
                               });
                             }
                           },
                         ),
+
                         const SizedBox(height: 12),
 
                         // 3. Saisie de la Valeur Estimée
+
+                        // 🟩 NOUVEAU CODE CORRIGÉ À METTRE :
                         _buildStandardField(
-                          controller: _rameController,
+                          controller: _valeurEstimeeController, // 🔥 CONNECTÉ : Utilise son propre contrôleur dédié
                           icone: Icons.edit_attributes_rounded,
                           label: "Valeur estimée",
                           hintText: "Estimation...",
                           estNumerique: true,
-                          onChanged: (val) => setState(() {}),
+                          onChanged: (valeurTapee) {
+                            final int chiffre =
+                                int.tryParse(valeurTapee.trim()) ?? 0;
+                            setState(() {
+                              if (_confortSelectionne == "Premiere Classe") {
+                                _comptageTemporaire1ere = chiffre; // Reste gravé en RAM même après le clear() !
+                              } else {
+                                _comptageTemporaire2nde = chiffre;
+                              }
+                            });
+                          },
                         ),
                       ],
                     ),
