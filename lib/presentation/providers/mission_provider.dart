@@ -20,13 +20,10 @@ class MissionProvider with ChangeNotifier {
   Mission? get missionActuelle => _missionSelectionnee;
   List<Mission> get listeMissions => _toutesLesMissions;
 
-  // 🔄 CHARGER TOUTES LES MISSIONS DEPUIS SQLITE (Optionnel mais recommandé si implémenté dans votre repo)
   // 🔄 CHARGER TOUTES LES MISSIONS DEPUIS SQLITE
   Future<void> chargerToutesLesMissions() async {
     try {
       // 🟩 CORRECTION : On va chercher toutes les missions dans SQLite
-      // Si vous n'avez pas encore créé de méthode globale "obtenirToutesLesMissions" dans votre Repository,
-      // voici comment réhydrater la liste locale depuis la base de données :
       final db = await DbHelper().database;
       final List<Map<String, dynamic>> maps = await db.query('missions');
 
@@ -63,6 +60,16 @@ class MissionProvider with ChangeNotifier {
     } catch (e) {
       debugPrint("Erreur lors du chargement du train $numeroTrain : $e");
     }
+  }
+
+  // ➕ AJOUTÉ : Méthode requise par l'écran de saisie en mode création
+  Future<void> ajouterNouvelleMission(Mission mission) async {
+    await enregistrerMission(mission);
+  }
+
+  // 🔄 AJOUTÉ : Méthode requise par l'écran de saisie en mode modification
+  Future<void> mettreAJourMission(Mission mission) async {
+    await enregistrerMission(mission);
   }
 
   // 💾 ENREGISTRER SANS ÉCRASER LES AUTRES

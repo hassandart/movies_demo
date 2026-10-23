@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:movies_demo/domain/entities/mission.dart';
@@ -13,14 +15,18 @@ class EcranSaisiePremium extends StatefulWidget {
 class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   final _formKey = GlobalKey<FormState>();
   bool _estEnModeModification = false;
-  String _numTrainOrigine = "";
   String _destinationChoisie = "";
-  String _gareComptageSelectionnee =
-      "KENITRA"; // Valeur par défaut au démarrage
-  String _confortSelectionne = "Premiere Classe";
-  // Valeur par défaut pour le Confort
-  int _comptageTemporaire1ere = 0;
-  int _comptageTemporaire2nde = 0;
+
+  String _classeRabatSelectionnee = "1ère";
+  String _classeKenitraSelectionnee = "1ère";
+
+  final List<String> _classesDisponibles = ["1ère", "2ème"];
+
+  // 🧠 Variables mémoires temporaires étanches par gare et par classe
+  int _rabatTemp1ere = 0;
+  int _rabatTemp2nde = 0;
+  int _kenitraTemp1ere = 0;
+  int _kenitraTemp2nde = 0;
 
   late TextEditingController _numTrainController;
   late TextEditingController _dateController;
@@ -29,34 +35,19 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   late TextEditingController _nomChefController;
   late TextEditingController _telephoneController;
   late TextEditingController _rameController;
-
   late TextEditingController _anomaliesController;
-  // 🔥 LES NOUVEAUX CONTRÔLEURS DE COMPTAGE À AJOUTER ICI :
-  late TextEditingController _billetsController;
-  // 🟩 REMPLACEZ PAR CE NOM PROPRE :
-  late TextEditingController _premiereClasseController;
 
-  late TextEditingController _rabatController;
-  late TextEditingController _terminalController;
+  late TextEditingController _rabatVoyageursController;
+  late TextEditingController _kenitraVoyageursController;
+  late TextEditingController _bcGareArriveeController;
 
-  // 🔥 AJOUTEZ CETTE LIGNE DÉFINITIVE ICI :
-  late TextEditingController _valeurEstimeeController;
-
-  // 🔥 DECIARATION DU DICTIONNAIRE GLOBAL AU BON ENDROIT :
-  final Map<String, String> _codesGaresONCF = {
-    "KENITRA": "250",
-    "CASA-PORT": "201",
-    "RABAT-VILLE": "320",
-    "SETTAT": "139",
-  };
-
-  // 📊 Décompté et réactivé : Configuration de vos 4 boutons d'axes ONCF
   final List<Map<String, String>> _boutonsDestinations = [
     {"label": "K", "nom": "KENITRA", "code": "250"},
     {"label": "EJ", "nom": "EL JADIDA", "code": "610"},
     {"label": "S", "nom": "SETTAT", "code": "139"},
     {"label": "A", "nom": "AÉROPORT MED V", "code": "190"},
   ];
+
   @override
   void initState() {
     super.initState();
@@ -64,7 +55,6 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     final missionActuelle = context.read<MissionProvider>().missionActuelle;
     _estEnModeModification = missionActuelle != null;
 
-    // 1. 🔥 Initialisation immédiate anti LateInitializationError
     _anomaliesController = TextEditingController(
       text:
           (missionActuelle != null &&
@@ -76,7 +66,6 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     final String dateFormatee =
         "${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}";
 
-    // 2. Initialisation linéaire des contrôleurs de base
     _numTrainController = TextEditingController(
       text: missionActuelle?.numeroTrain ?? '',
     );
@@ -95,64 +84,66 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     _telephoneController = TextEditingController(
       text: missionActuelle?.numeroChefDeTrain ?? '',
     );
-
-    // 🟩 INITIALISATION CRUCIALE : Rame et Voyageurs partent sur des boîtes indépendantes dès le départ
-    _rameController = TextEditingController(text: '');
-    _valeurEstimeeController = TextEditingController(
-      text: '',
-    ); // Initialisé proprement dès la racine
-    _premiereClasseController = TextEditingController(text: '');
-
-    // 3. Initialisation du contrôleur de Billets (Ligne 4 du formulaire vertical)
-    _billetsController = TextEditingController(
-      text: (missionActuelle == null || missionActuelle.billetsControles == 0)
+    _rameController = TextEditingController(
+      text: (missionActuelle == null || missionActuelle.comptageTerminal == 0)
           ? ''
-          : "${missionActuelle.billetsControles}",
+          : "${missionActuelle.comptageTerminal}",
     );
-    _rabatController = TextEditingController(text: '');
-    _terminalController = TextEditingController(text: '');
 
-    // 4. 🔄 Tri intelligent et réhydratation pour le mode modification Honeywell
-    if (_estEnModeModification) {
-      _numTrainOrigine = missionActuelle!.numeroTrain;
+    _rabatVoyageursController = TextEditingController(text: '');
+    _kenitraVoyageursController = TextEditingController(text: '');
+    _bcGareArriveeController = TextEditingController(text: '');
+    _classeRabatSelectionnee = "1ère";
+    _classeKenitraSelectionnee = "1ère";
+
+    // 🔄 RESTITUTION INFAILLIBLE DE TOUTES LES VALEURS VIA JSON PAR GARE ELEM
+    if (_estEnModeModification && missionActuelle != null) {
       _destinationChoisie = missionActuelle.gareArrivee;
-
-      // RECHARGEMENT DU N° RAME : Écrase le texte vide par la vraie valeur SQLite
-      _rameController.text = missionActuelle.comptageTerminal == 0
+      _bcGareArriveeController.text = missionActuelle.billetsControles == 0
           ? ''
-          : "${missionActuelle.comptageTerminal}";
+          : "${missionActuelle.billetsControles}";
 
-      // Extraction de la gare et du confort depuis la chaîne typeService
-      if (missionActuelle.typeService.contains("GARE:")) {
-        final List<String> parties = missionActuelle.typeService.split("|");
-        _gareComptageSelectionnee = parties[0].replaceAll("GARE:", "").trim();
-        _confortSelectionne = parties[1].replaceAll("CONFORT:", "").trim();
-      } else {
-        _gareComptageSelectionnee = "KENITRA";
-        _confortSelectionne = "Premiere Classe";
-      }
+      if (missionActuelle.typeService.isNotEmpty &&
+          missionActuelle.typeService.startsWith("{")) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(
+            missionActuelle.typeService,
+          );
 
-      // 🟩 RECHARGEMENT DE LA VALEUR ESTIMÉE : Assigne directement la valeur sur le bon contrôleur
-      if (_confortSelectionne == "Premiere Classe") {
-        _valeurEstimeeController.text = missionActuelle.voyageursPremiereCl == 0
-            ? ''
-            : "${missionActuelle.voyageursPremiereCl}";
-      } else {
-        _valeurEstimeeController.text = missionActuelle.voyageursSecondeCl == 0
-            ? ''
-            : "${missionActuelle.voyageursSecondeCl}";
+          _classeRabatSelectionnee = data["rabat_classe"] ?? "1ère";
+          _classeKenitraSelectionnee = data["kenitra_classe"] ?? "1ère";
+
+          _rabatTemp1ere = data["rabat_1"] ?? 0;
+          _rabatTemp2nde = data["rabat_2"] ?? 0;
+          _kenitraTemp1ere = data["kenitra_1"] ?? 0;
+          _kenitraTemp2nde = data["kenitra_2"] ?? 0;
+
+          if (_classeRabatSelectionnee == "1ère") {
+            _rabatVoyageursController.text = _rabatTemp1ere == 0
+                ? ''
+                : '$_rabatTemp1ere';
+          } else {
+            _rabatVoyageursController.text = _rabatTemp2nde == 0
+                ? ''
+                : '$_rabatTemp2nde';
+          }
+
+          if (_classeKenitraSelectionnee == "1ère") {
+            _kenitraVoyageursController.text = _kenitraTemp1ere == 0
+                ? ''
+                : '$_kenitraTemp1ere';
+          } else {
+            _kenitraVoyageursController.text = _kenitraTemp2nde == 0
+                ? ''
+                : '$_kenitraTemp2nde';
+          }
+        } catch (_) {}
       }
-    } else {
-      // ☀️ SÉCURITÉ DU MATIN (Nouveau trajet vierge)
-      _gareComptageSelectionnee = "KENITRA";
-      _confortSelectionne = "Premiere Classe";
     }
-    // 🟩 EFFACEMENT DE LA RÉINITIALISATION PARASITE DE FIN : Le circuit reste ouvert !
   }
 
   @override
   void dispose() {
-    // Libération des contrôleurs de base
     _numTrainController.dispose();
     _dateController.dispose();
     _departController.dispose();
@@ -161,14 +152,9 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
     _telephoneController.dispose();
     _rameController.dispose();
     _anomaliesController.dispose();
-
-    // Libération des contrôleurs de comptage
-    _billetsController.dispose();
-    _premiereClasseController.dispose();
-    _rabatController.dispose();
-    _terminalController.dispose();
-
-    // Clôture native obligatoire
+    _rabatVoyageursController.dispose();
+    _kenitraVoyageursController.dispose();
+    _bcGareArriveeController.dispose();
     super.dispose();
   }
 
@@ -182,34 +168,36 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
           ? const []
           : [texteAnomalies];
 
-      // 🧮 LECTURE DES ENTRÉES VERTICALES SÉPARÉES
-      final String numeroRameSaisi = _rameController.text.trim();
-      final int billetsSaisis =
-          int.tryParse(_billetsController.text.trim()) ?? 0;
-      // final int chiffreEstime =
-      //     int.tryParse(_valeurEstimeeController.text.trim()) ?? 0;
+      final int valeurRabatEcran =
+          int.tryParse(_rabatVoyageursController.text.trim()) ?? 0;
+      if (_classeRabatSelectionnee == "1ère") {
+        _rabatTemp1ere = valeurRabatEcran;
+      } else {
+        _rabatTemp2nde = valeurRabatEcran;
+      }
 
-      final missionProvider = Provider.of<MissionProvider>(
-        context,
-        listen: false,
-      );
-      // final missionExistante = missionProvider.missionActuelle;
+      final int valeurKenitraEcran =
+          int.tryParse(_kenitraVoyageursController.text.trim()) ?? 0;
+      if (_classeKenitraSelectionnee == "1ère") {
+        _kenitraTemp1ere = valeurKenitraEcran;
+      } else {
+        _kenitraTemp2nde = valeurKenitraEcran;
+      }
 
-      // int total1ere = (missionExistante != null)
-      //     ? missionExistante.voyageursPremiereCl
-      //     : 0;
-      // int total2nde = (missionExistante != null)
-      //     ? missionExistante.voyageursSecondeCl
-      //     : 0;
+      final int bcBilletsSaisis =
+          int.tryParse(_bcGareArriveeController.text.trim()) ?? 0;
+      final int rameSaisie = int.tryParse(_rameController.text.trim()) ?? 0;
 
-      // // Tri intelligent selon le Confort sélectionné dans la 2ème liste déroulante
-      // if (_confortSelectionne == "Premiere Classe") {
-      //   total1ere = chiffreEstime;
-      // } else {
-      //   total2nde = chiffreEstime;
-      // }
+      // 💾 ENCODAGE JSON TOTALEMENT ÉTANCHE SANS AUCUN CONFLIT POSSIBLE
+      final Map<String, dynamic> mappingJson = {
+        "rabat_classe": _classeRabatSelectionnee,
+        "kenitra_classe": _classeKenitraSelectionnee,
+        "rabat_1": _rabatTemp1ere,
+        "rabat_2": _rabatTemp2nde,
+        "kenitra_1": _kenitraTemp1ere,
+        "kenitra_2": _kenitraTemp2nde,
+      };
 
-      // Assemblage de l'objet Mission pour SQLite
       final nouvelleMission = Mission(
         numeroTrain: _numTrainController.text.trim().isEmpty
             ? "0"
@@ -220,565 +208,332 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         gareDepart: "CASA-PORT",
         gareArrivee: _destinationChoisie,
         nomChefDeTrain: _nomChefController.text.trim(),
-        numeroChefDeTrain: _telephoneController.text.trim(), // Téléphone isolé
+        numeroChefDeTrain: _telephoneController.text.trim(),
         anomaliesDepart: listeAnomalies,
-
-        // 📊 Enregistrement dans les vraies colonnes SQLite correspondantes
-        billetsControles: billetsSaisis, // Nb de billets saisis à la ligne 4
-        // 🟩 LA RECONNEXION : On associe vos miroirs qui survivent au .clear() du menu déroulant
-        voyageursPremiereCl: _comptageTemporaire1ere, // 🔥 Connecté, l'avertissement Dart s'efface !
-        voyageursSecondeCl: _comptageTemporaire2nde, // 🔥 Connecté
-
-        comptageRabat: billetsSaisis, // Duplication de sauvegarde pour Kénitra (Simulation arrêt)
-        // Stockage sécurisé du N° Rame Matériel (Ligne du haut)
-        comptageTerminal: int.tryParse(numeroRameSaisi) ?? 0,
-
-        // Métadonnées d'aiguillage de la gare (Ligne 2) et du confort (Ligne 3)
-        typeService:
-            "GARE: $_gareComptageSelectionnee | CONFORT: $_confortSelectionne",
+        billetsControles: bcBilletsSaisis,
+        voyageursPremiereCl: _kenitraTemp1ere,
+        voyageursSecondeCl: _kenitraTemp2nde,
+        comptageRabat: _classeRabatSelectionnee == "1ère"
+            ? _rabatTemp1ere
+            : _rabatTemp2nde,
+        comptageTerminal: rameSaisie,
+        typeService: jsonEncode(mappingJson),
       );
 
-      if (_estEnModeModification &&
-          _numTrainOrigine != nouvelleMission.numeroTrain) {
-        await missionProvider.supprimerMission(_numTrainOrigine);
-        if (!mounted) return;
+      final missionProvider = Provider.of<MissionProvider>(
+        context,
+        listen: false,
+      );
+
+      if (_estEnModeModification) {
+        await missionProvider.mettreAJourMission(nouvelleMission);
+      } else {
+        await missionProvider.ajouterNouvelleMission(nouvelleMission);
       }
 
-      await missionProvider.enregistrerMission(nouvelleMission);
-
-      if (!mounted) return;
-      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Veuillez valider le formulaire et choisir une destination (Axe).",
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
-  }
-
-  // 🎨 FONCTION DE GRAPHISME : Les champs standards équipés de leur LIGNE JAUNE
-  Widget _buildStandardField({
-    required TextEditingController controller,
-    required IconData icone,
-    String? label,
-    String? hintText,
-    bool lectureSeule = false,
-    bool estNumerique = false,
-    ValueChanged<String>?
-    onChanged, // 🟩 AJOUTÉ : Permet de capter les changements de texte
-  }) {
-    return TextFormField(
-      controller: controller,
-      readOnly: lectureSeule,
-      onChanged: onChanged,
-      keyboardType: estNumerique ? TextInputType.number : TextInputType.text,
-      style: const TextStyle(
-        color: Color(0xFF2C3E50),
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-      ),
-      validator: (val) =>
-          val == null || val.trim().isEmpty ? "Champ requis" : null,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        labelStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-        hintStyle: TextStyle(
-          color: Colors.grey.withValues(alpha: 0.6),
-          fontSize: 13,
-        ),
-        prefixIcon: Icon(icone, color: const Color(0xFF2980B9), size: 20),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
-        ),
-
-        // Lignes Jaunes ONCF
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 2.0),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 3.0),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-        ),
-      ),
-    );
-  }
-
-  // 🎨 FONCTION DE GRAPHISME : Le Grand Champ d'anomalies autonome équipé de sa LIGNE JAUNE
-  Widget _buildGrandChampAnomalies({
-    required TextEditingController controller,
-  }) {
-    return TextFormField(
-      controller: controller,
-      maxLines: 4,
-      minLines: 4,
-      keyboardType: TextInputType.multiline,
-      style: const TextStyle(
-        color: Color(0xFF2C3E50),
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-      ),
-      decoration: InputDecoration(
-        hintText: "Saisir une anomalie si nécessaire...",
-        hintStyle: TextStyle(
-          color: Colors.grey.withValues(alpha: 0.6),
-          fontSize: 13,
-        ),
-        prefixIcon: const Align(
-          alignment: Alignment.topLeft,
-          widthFactor: 1.0,
-          heightFactor: 1.0,
-          child: Padding(
-            padding: EdgeInsets.only(left: 12, top: 14, right: 8),
-            child: Icon(
-              Icons.report_problem_rounded,
-              color: Colors.orange,
-              size: 20,
-            ),
-          ),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.all(16),
-
-        // 🔥 Ligne jaune par défaut
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 2.0),
-        ),
-        // 🔥 Ligne jaune lors du clic
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFFFC400), width: 3.0),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEcranAccueilPublicitaire() {
-    return Padding(padding: const EdgeInsets.symmetric(vertical: 8.0));
-  }
-
-  // 🎨 FONCTION DE GRAPHISME : Le conteneur de carte blanche
-  Widget _buildCardContainer(List<Widget> children) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF2980B9),
+      backgroundColor: const Color(0xFFF2F4F4),
       appBar: AppBar(
-        title: const Text(
-          "Début Mission",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        title: Text(
+          _estEnModeModification
+              ? "Détails Train ${_numTrainController.text}"
+              : "Bordereau de Saisie",
         ),
-        backgroundColor: const Color(0xFF2980B9),
+        backgroundColor: const Color(0xFF1976D2),
         foregroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: [
-            // 📊 1. BANDEAU DE SELECTION D'AXE ONCF (K, EJ, S, A)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: _boutonsDestinations.map((map) {
-                  final bool estSelectionne = _destinationChoisie == map["nom"];
-                  return Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: estSelectionne
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.08),
-                          foregroundColor: estSelectionne
-                              ? const Color(0xFF2980B9)
-                              : Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: estSelectionne ? 2 : 0,
-                        ),
-                        onPressed: () => setState(() {
-                          _destinationChoisie = map["nom"]!;
-                        }),
-                        child: Text(
-                          map["label"]!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              Card(
+                elevation: 2,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- GARE 1 : RABAT AGDAL ---
+                      const Text(
+                        "RABAT AGDAL",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.black87,
                         ),
                       ),
+                      const SizedBox(height: 8.0),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _classeRabatSelectionnee,
+                              decoration: const InputDecoration(
+                                labelText: "Classe",
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _classesDisponibles
+                                  .map(
+                                    (String value) => DropdownMenuItem(
+                                      value: value,
+                                      child: Text(value),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (newValue) {
+                                setState(() {
+                                  final int valeurTappee =
+                                      int.tryParse(
+                                        _rabatVoyageursController.text.trim(),
+                                      ) ??
+                                      0;
+                                  if (_classeRabatSelectionnee == "1ère") {
+                                    _rabatTemp1ere = valeurTappee;
+                                  } else {
+                                    _rabatTemp2nde = valeurTappee;
+                                  }
+                                  _classeRabatSelectionnee = newValue!;
+                                  _rabatVoyageursController.text =
+                                      _classeRabatSelectionnee == "1ère"
+                                      ? (_rabatTemp1ere == 0
+                                            ? ''
+                                            : '$_rabatTemp1ere')
+                                      : (_rabatTemp2nde == 0
+                                            ? ''
+                                            : '$_rabatTemp2nde');
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12.0),
+                          Expanded(
+                            flex: 4,
+                            child: TextFormField(
+                              controller: _rabatVoyageursController,
+                              decoration: const InputDecoration(
+                                labelText: "Saisir valeur cl",
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (value) =>
+                                  (value == null || value.trim().isEmpty)
+                                  ? "Requis"
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16.0),
+                      const Divider(),
+                      const SizedBox(height: 8.0),
+                      // --- GARE 2 : KÉNITRA ---
+                      const Text(
+                        "KÉNITRA",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8.0),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: DropdownButtonFormField(
+                              initialValue: _classeKenitraSelectionnee,
+                              decoration: const InputDecoration(
+                                labelText: "Classe",
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _classesDisponibles
+                                  .map(
+                                    (String value) => DropdownMenuItem(
+                                      value: value,
+                                      child: Text(value),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (newValue) {
+                                setState(() {
+                                  final int valeurTappee =
+                                      int.tryParse(
+                                        _kenitraVoyageursController.text.trim(),
+                                      ) ??
+                                      0;
+                                  if (_classeKenitraSelectionnee == "1ère") {
+                                    _kenitraTemp1ere = valeurTappee;
+                                  } else {
+                                    _kenitraTemp2nde = valeurTappee;
+                                  }
+                                  _classeKenitraSelectionnee = newValue!;
+                                  _kenitraVoyageursController.text =
+                                      _classeKenitraSelectionnee == "1ère"
+                                      ? (_kenitraTemp1ere == 0
+                                            ? ''
+                                            : '$_kenitraTemp1ere')
+                                      : (_kenitraTemp2nde == 0
+                                            ? ''
+                                            : '$_kenitraTemp2nde');
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12.0),
+                          Expanded(
+                            flex: 4,
+                            child: TextFormField(
+                              controller: _kenitraVoyageursController,
+                              decoration: const InputDecoration(
+                                labelText: "Saisir valeur cl",
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (value) =>
+                                  (value == null || value.trim().isEmpty)
+                                  ? "Requis"
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20.0),
+              Card(
+                elevation: 3,
+                color: Colors.amber.shade50,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                  side: const BorderSide(color: Colors.amber, width: 1.5),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextFormField(
+                    controller: _bcGareArriveeController,
+                    decoration: const InputDecoration(
+                      labelText: "BC (Nombre de billets contrôlés)",
+                      border: OutlineInputBorder(),
+                      fillColor: Colors.white,
+                      filled: true,
+                      prefixIcon: Icon(
+                        Icons.confirmation_number,
+                        color: Colors.amber,
+                      ),
                     ),
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
+                        ? "BC obligatoire"
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24.0),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _numTrainController,
+                      decoration: const InputDecoration(
+                        labelText: "N° Train",
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12.0),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _rameController,
+                      decoration: const InputDecoration(
+                        labelText: "N° Rame",
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24.0),
+              const Text(
+                "Axe / Destination finale :",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8.0),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: _boutonsDestinations.map((btn) {
+                  final bool estSelectionne = _destinationChoisie == btn["nom"];
+                  return ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: estSelectionne
+                          ? Colors.blue.shade800
+                          : Colors.grey.shade300,
+                      foregroundColor: estSelectionne
+                          ? Colors.white
+                          : Colors.black87,
+                    ),
+                    onPressed: () =>
+                        setState(() => _destinationChoisie = btn["nom"]!),
+                    child: Text(btn["label"]!),
                   );
                 }).toList(),
               ),
-            ),
-            const SizedBox(height: 16),
-            // 📇 2. CARTE BLANCHE CONTENANT LES 4 CHAMPS STANDARDS (Train, Rame, Chef, Tel)
-            _buildCardContainer([
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildStandardField(
-                      controller: _numTrainController,
-                      icone: Icons.train,
-                      hintText: "N° Train (Saisie libre)",
-                      estNumerique: true,
-                      lectureSeule: _estEnModeModification,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStandardField(
-                      controller: _rameController,
-                      icone: Icons.directions_railway,
-                      label: "N° Rame",
-                      estNumerique: true,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildStandardField(
-                      controller: _nomChefController,
-                      icone: Icons.person,
-                      label: "Nom Chef",
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStandardField(
-                      controller: _telephoneController,
-                      icone: Icons.phone,
-                      label: "N° Téléphone",
-                      estNumerique: true,
-                    ),
-                  ),
-                ],
-              ),
-            ]),
-            const SizedBox(height: 16),
-
-            // 🟩 ET METTEZ À LA PLACE VOTRE COUPLAGE EXACT DOUBLE COLONNE :
-            _buildCardContainer([
-              const Text(
-                "DONNÉES DE COMPTAGE & CONTRÔLES",
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                  letterSpacing: 0.5,
+              const SizedBox(height: 28.0),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  backgroundColor: const Color(0xFFFFB300),
+                  foregroundColor: Colors.black87,
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              // 🟩 ROW PRINCIPALE AVEC SÉCURITÉ VERTICALE ALIGNÉE SUR LE HAUT
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start, // Aligne le haut des colonnes pour éviter les décalages
-                children: [
-                  // ==========================================
-                  // ⬅️ COLONNE 1 : À GAUCHE (CODE + BILLETS CONTRÔLÉS)
-                  // ==========================================
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 1. L'affichage du Code de gare automatique (Hauteur calée sur 52px pour la symétrie)
-                        Container(
-                          width: double.infinity,
-                          height: 52,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8F9FA),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFFFFC400),
-                              width: 2.0,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                "Code",
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                _codesGaresONCF[_gareComptageSelectionnee] ??
-                                    "000",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF2C3E50),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // 2. Saisie du nombre de Billets Contrôlés
-                        _buildStandardField(
-                          controller: _billetsController,
-                          icone: Icons.confirmation_number_rounded,
-                          label: "Billets Contr.", // Libellé légèrement raccourci pour éviter l'overflow de texte
-                          estNumerique: true,
-                          onChanged: (val) => setState(() {}),
-                        ),
-                      ],
-                    ),
+                icon: const Icon(Icons.edit),
+                label: Text(
+                  _estEnModeModification
+                      ? "CONFIRMER LA MODIFICATION"
+                      : "ENREGISTRER LE TRAIN",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
                   ),
-
-                  const SizedBox(
-                    width: 10,
-                  ), // Espace de séparation central optimisé
-                  // ==========================================
-                  // ➡️ COLONNE 2 : À DROITE (GARES + CLASSES + ESTIMATION)
-                  // ==========================================
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 1. Menu déroulant pour la Gare (Hauteur interne optimisée via contentPadding)
-                        DropdownButtonFormField<String>(
-                          initialValue: _gareComptageSelectionnee,
-                          dropdownColor: Colors.white,
-                          isExpanded: true, // 🔥 FORCE LE TEXTE À RESTER DANS LES LIMITES DE LA COLONNE
-                          icon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: Colors.orange,
-                            size: 22,
-                          ),
-                          style: const TextStyle(
-                            color: Color(0xFF2C3E50),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: "Gare Départ/Arrivée",
-                            labelStyle: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 10,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
-                            ), // Padding réduit anti-overflow
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFFFC400),
-                                width: 2.0,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFFFC400),
-                                width: 3.0,
-                              ),
-                            ),
-                          ),
-                          items: _codesGaresONCF.keys.map((String gare) {
-                            return DropdownMenuItem<String>(
-                              value: gare,
-                              child: Text(gare, overflow: TextOverflow.ellipsis), // Coupe proprement si le nom de la gare est trop long
-                            );
-                          }).toList(),
-                          onChanged: (String? nouvelleGare) {
-                            if (nouvelleGare != null) {
-                              setState(() {
-                                _gareComptageSelectionnee = nouvelleGare;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 12),
-
-                        // 2. Menu déroulant pour le Confort (1ère / 2nde Classe)
-                        // 3️⃣ LIGNE 3 : Deuxième Liste Déroulante - Classe Confort (1ère et 2nde)
-                        DropdownButtonFormField<String>(
-                          initialValue: _confortSelectionne,
-                          dropdownColor: Colors.white,
-                          isExpanded: true,
-                          icon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: Colors.orange,
-                            size: 24,
-                          ),
-                          style: const TextStyle(
-                            color: Color(0xFF2C3E50),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: "Classe Confort",
-                            labelStyle: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFFFC400),
-                                width: 2.0,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFFFC400),
-                                width: 3.0,
-                              ),
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem<String>(
-                              value: "Premiere Classe",
-                              child: Text("1ère Classe"),
-                            ),
-                            DropdownMenuItem<String>(
-                              value: "Deuxieme Classe",
-                              child: Text("2nde Classe"),
-                            ),
-                          ],
-                          onChanged: (nouveauConfort) {
-                            if (nouveauConfort != null) {
-                              setState(() {
-                                _confortSelectionne = nouveauConfort;
-
-                                // 🔥 LA MAGIE OPÈRE ICI : Vide instantanément la case d'estimation
-                                // pour laisser la place nette au prochain comptage de l'agent !
-                                _valeurEstimeeController.clear();
-                              });
-                            }
-                          },
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // 3. Saisie de la Valeur Estimée
-
-                        // 🟩 NOUVEAU CODE CORRIGÉ À METTRE :
-                        _buildStandardField(
-                          controller: _valeurEstimeeController, // 🔥 CONNECTÉ : Utilise son propre contrôleur dédié
-                          icone: Icons.edit_attributes_rounded,
-                          label: "Valeur estimée",
-                          hintText: "Estimation...",
-                          estNumerique: true,
-                          onChanged: (valeurTapee) {
-                            final int chiffre =
-                                int.tryParse(valeurTapee.trim()) ?? 0;
-                            setState(() {
-                              if (_confortSelectionne == "Premiere Classe") {
-                                _comptageTemporaire1ere = chiffre; // Reste gravé en RAM même après le clear() !
-                              } else {
-                                _comptageTemporaire2nde = chiffre;
-                              }
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-            // ⚠️ 4. LE GRAND BLOC ANOMALIES AUTONOME (Dessiné sous les cartes)
-            const Text(
-              "ANOMALIES AU DÉPART",
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.white70,
-                letterSpacing: 1.1,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildGrandChampAnomalies(controller: _anomaliesController),
-            const SizedBox(height: 16),
-            // 📢 5. ACTIVATION DU BANDEAU PUBLICITAIRE / INFORMATIF RECONSTITUÉ
-            _buildEcranAccueilPublicitaire(),
-            const SizedBox(height: 24),
-            // 🟩 6. LE BOUTON DE VALIDATION VERT ET ETIRÉ TOUT EN BAS
-            ElevatedButton(
-              onPressed: _sauvegarderEtBasculerVersAccueil,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF27AE60),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 3,
+                onPressed: _sauvegarderEtBasculerVersAccueil,
               ),
-              child: const Text(
-                "VALIDER LA MISSION",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
