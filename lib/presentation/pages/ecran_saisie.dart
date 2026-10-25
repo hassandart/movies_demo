@@ -16,6 +16,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   final _formKey = GlobalKey<FormState>();
   bool _estEnModeModification = false;
   String _destinationChoisie = "";
+  String _numTrainOrigine = "";
 
   String _classeRabatSelectionnee = "1ère";
   String _classeKenitraSelectionnee = "1ère";
@@ -168,6 +169,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
           ? const []
           : [texteAnomalies];
 
+      // On enregistre d'abord la valeur actuellement écrite à l'écran dans sa bonne case temporaire
       final int valeurRabatEcran =
           int.tryParse(_rabatVoyageursController.text.trim()) ?? 0;
       if (_classeRabatSelectionnee == "1ère") {
@@ -188,7 +190,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
           int.tryParse(_bcGareArriveeController.text.trim()) ?? 0;
       final int rameSaisie = int.tryParse(_rameController.text.trim()) ?? 0;
 
-      // 💾 ENCODAGE JSON TOTALEMENT ÉTANCHE SANS AUCUN CONFLIT POSSIBLE
+      // 💾 Encodage JSON étanche
       final Map<String, dynamic> mappingJson = {
         "rabat_classe": _classeRabatSelectionnee,
         "kenitra_classe": _classeKenitraSelectionnee,
@@ -198,10 +200,25 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         "kenitra_2": _kenitraTemp2nde,
       };
 
+      final String trainSaisiActuel = _numTrainController.text.trim().isEmpty
+          ? "0"
+          : _numTrainController.text.trim();
+
+      // 🛠️ LOGIQUE SÉCURISÉE ANTI-DOUBLON :
+      // Si on est en modification et que le numéro de train a été changé,
+      // on supprime d'abord l'ancien numéro de la base pour éviter les doublons fantômes.
+      final missionProvider = Provider.of<MissionProvider>(
+        context,
+        listen: false,
+      );
+      if (_estEnModeModification &&
+          _numTrainOrigine.isNotEmpty &&
+          _numTrainOrigine != trainSaisiActuel) {
+        await missionProvider.supprimerMission(_numTrainOrigine);
+      }
+
       final nouvelleMission = Mission(
-        numeroTrain: _numTrainController.text.trim().isEmpty
-            ? "0"
-            : _numTrainController.text.trim(),
+        numeroTrain: trainSaisiActuel,
         date: _dateController.text.trim(),
         heureDepart: _departController.text.trim(),
         heureArrivee: _arriveeController.text.trim(),
@@ -220,11 +237,7 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         typeService: jsonEncode(mappingJson),
       );
 
-      final missionProvider = Provider.of<MissionProvider>(
-        context,
-        listen: false,
-      );
-
+      // Enregistrement unifié (le Repository appliquera le ConflictAlgorithm.replace sur le numéro de train)
       if (_estEnModeModification) {
         await missionProvider.mettreAJourMission(nouvelleMission);
       } else {
@@ -249,14 +262,16 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F4F4),
+      backgroundColor: const Color(
+        0xFF2980B9,
+      ), // 🔥 Arrière-plan bleu identique à l'écran d'accueil
       appBar: AppBar(
         title: Text(
           _estEnModeModification
-              ? "Détails Train ${_numTrainController.text}"
+              ? "Modification Mission"
               : "Bordereau de Saisie",
         ),
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: const Color(0xFF1976D2), // Bleu ONCF de la barre
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -264,234 +279,434 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              bottom: 24.0,
+            ),
             children: [
-              Card(
-                elevation: 2,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
+              // =========================================================================
+              // 📦 CONTAINER 1 : IDENTIFICATION TECHNIQUE & BRIGADE DE BORD
+              // =========================================================================
+              Container(
+                margin: const EdgeInsets.only(bottom: 20.0),
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  // 🔥 Coins arrondis uniquement sur le bas (bottomLeft et bottomRight)
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(24.0),
+                    bottomRight: Radius.circular(24.0),
+                  ),
+                  border: Border.all(color: const Color(0xFFE5E8E8), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- GARE 1 : RABAT AGDAL ---
-                      const Text(
-                        "RABAT AGDAL",
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12.0),
+                      child: Text(
+                        "IDENTIFICATION DU TRAIN & BRIGADE",
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Colors.black87,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.grey,
+                          fontSize: 11,
+                          letterSpacing: 0.8,
                         ),
                       ),
-                      const SizedBox(height: 8.0),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: DropdownButtonFormField<String>(
-                              initialValue: _classeRabatSelectionnee,
-                              decoration: const InputDecoration(
-                                labelText: "Classe",
-                                border: OutlineInputBorder(),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _numTrainController,
+                            decoration: const InputDecoration(
+                              labelText: "N° Train",
+                              prefixIcon: Icon(
+                                Icons.train,
+                                color: Color(0xFF1976D2),
+                                size: 20,
                               ),
-                              items: _classesDisponibles
-                                  .map(
-                                    (String value) => DropdownMenuItem(
-                                      value: value,
-                                      child: Text(value),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (newValue) {
-                                setState(() {
-                                  final int valeurTappee =
-                                      int.tryParse(
-                                        _rabatVoyageursController.text.trim(),
-                                      ) ??
-                                      0;
-                                  if (_classeRabatSelectionnee == "1ère") {
-                                    _rabatTemp1ere = valeurTappee;
-                                  } else {
-                                    _rabatTemp2nde = valeurTappee;
-                                  }
-                                  _classeRabatSelectionnee = newValue!;
-                                  _rabatVoyageursController.text =
-                                      _classeRabatSelectionnee == "1ère"
-                                      ? (_rabatTemp1ere == 0
-                                            ? ''
-                                            : '$_rabatTemp1ere')
-                                      : (_rabatTemp2nde == 0
-                                            ? ''
-                                            : '$_rabatTemp2nde');
-                                });
-                              },
+                              border: OutlineInputBorder(),
                             ),
+                            keyboardType: TextInputType.number,
                           ),
-                          const SizedBox(width: 12.0),
-                          Expanded(
-                            flex: 4,
-                            child: TextFormField(
-                              controller: _rabatVoyageursController,
-                              decoration: const InputDecoration(
-                                labelText: "Saisir valeur cl",
-                                border: OutlineInputBorder(),
+                        ),
+                        const SizedBox(width: 12.0),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _rameController,
+                            decoration: const InputDecoration(
+                              labelText: "N° Rame",
+                              prefixIcon: Icon(
+                                Icons.confirmation_number_outlined,
+                                color: Color(0xFF1976D2),
+                                size: 20,
                               ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                  ? "Requis"
-                                  : null,
+                              border: OutlineInputBorder(),
                             ),
+                            keyboardType: TextInputType.number,
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14.0),
+                    TextFormField(
+                      controller: _nomChefController,
+                      decoration: const InputDecoration(
+                        labelText: "Nom Chef de Train",
+                        prefixIcon: Icon(
+                          Icons.person,
+                          color: Color(0xFF1976D2),
+                          size: 20,
+                        ),
+                        border: OutlineInputBorder(),
                       ),
-                      const SizedBox(height: 16.0),
-                      const Divider(),
-                      const SizedBox(height: 8.0),
-                      // --- GARE 2 : KÉNITRA ---
-                      const Text(
-                        "KÉNITRA",
-                        style: TextStyle(
+                      keyboardType: TextInputType.text,
+                    ),
+                    const SizedBox(height: 14.0),
+                    TextFormField(
+                      controller: _telephoneController,
+                      decoration: const InputDecoration(
+                        labelText: "Téléphone Brigade",
+                        prefixIcon: Icon(
+                          Icons.phone,
+                          color: Color(0xFF1976D2),
+                          size: 20,
+                        ),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                    ),
+                  ],
+                ),
+              ),
+
+              // =========================================================================
+              // 📦 CONTAINER 2 (MILIEU) : INCIDENTS & ANOMALIES DE ROUTE
+              // =========================================================================
+              const Padding(
+                padding: EdgeInsets.only(left: 4.0, bottom: 8.0),
+                child: Text(
+                  "SUIVI DES INCIDENTS & ANOMALIES",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white70,
+                    fontSize: 11,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(bottom: 20.0),
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14.0),
+                  border: Border.all(color: const Color(0xFFE5E8E8), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: TextFormField(
+                  controller: _anomaliesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: "Saisir les anomalies de route...",
+                    alignLabelWithHint: true,
+                    prefixIcon: Padding(
+                      padding: EdgeInsets.only(bottom: 40.0),
+                      child: Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange,
+                        size: 22,
+                      ),
+                    ),
+                    border: OutlineInputBorder(),
+                    hintText: "Ex: Retard signalisation, problème de rame...",
+                  ),
+                ),
+              ),
+
+              // =========================================================================
+              // 📦 CONTAINER 3 : EXPLOITATION, COMPTAGES & BILLET (BC)
+              // =========================================================================
+              const Padding(
+                padding: EdgeInsets.only(left: 4.0, bottom: 8.0),
+                child: Text(
+                  "BILAN DES VOYAGEURS ET DES CONTROLES (BC)",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white70,
+                    fontSize: 11,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(bottom: 24.0),
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14.0),
+                  border: Border.all(color: const Color(0xFFE5E8E8), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- GARE 1 : RABAT AGDAL ---
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          color: Color(0xFF1976D2),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "RABAT AGDAL",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            color: Colors.blueGrey.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10.0),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _classeRabatSelectionnee,
+                            decoration: const InputDecoration(
+                              labelText: "Classe",
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 10,
+                              ),
+                            ),
+                            items: _classesDisponibles
+                                .map(
+                                  (String val) => DropdownMenuItem(
+                                    value: val,
+                                    child: Text(
+                                      val,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (newValue) {
+                              setState(() {
+                                final int valeurTappee =
+                                    int.tryParse(
+                                      _rabatVoyageursController.text.trim(),
+                                    ) ??
+                                    0;
+                                if (_classeRabatSelectionnee == "1ère") {
+                                  _rabatTemp1ere = valeurTappee;
+                                } else {
+                                  _rabatTemp2nde = valeurTappee;
+                                }
+                                _classeRabatSelectionnee = newValue!;
+                                _rabatVoyageursController.text =
+                                    _classeRabatSelectionnee == "1ère"
+                                    ? (_rabatTemp1ere == 0
+                                          ? ''
+                                          : '$_rabatTemp1ere')
+                                    : (_rabatTemp2nde == 0
+                                          ? ''
+                                          : '$_rabatTemp2nde');
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12.0),
+                        Expanded(
+                          flex: 4,
+                          child: TextFormField(
+                            controller: _rabatVoyageursController,
+
+                            decoration: const InputDecoration(
+                              labelText: "Saisir valeur cl",
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
+                            ),
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            validator: (value) =>
+                                (value == null || value.trim().isEmpty)
+                                ? "Requis"
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16.0),
+                    const Divider(),
+                    const SizedBox(height: 10.0),
+                    // --- GARE 2 : KÉNITRA ---
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          color: Colors.green,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "KÉNITRA",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            color: Colors.blueGrey.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10.0),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField(
+                            initialValue: _classeKenitraSelectionnee,
+                            decoration: const InputDecoration(
+                              labelText: "Classe",
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 10,
+                              ),
+                            ),
+                            items: _classesDisponibles
+                                .map(
+                                  (String value) => DropdownMenuItem(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (newValue) {
+                              setState(() {
+                                final int valeurTappee =
+                                    int.tryParse(
+                                      _kenitraVoyageursController.text.trim(),
+                                    ) ??
+                                    0;
+                                if (_classeKenitraSelectionnee == "1ère") {
+                                  _kenitraTemp1ere = valeurTappee;
+                                } else {
+                                  _kenitraTemp2nde = valeurTappee;
+                                }
+                                _classeKenitraSelectionnee = newValue!;
+                                _kenitraVoyageursController.text =
+                                    _classeKenitraSelectionnee == "1ère"
+                                    ? (_kenitraTemp1ere == 0
+                                          ? ''
+                                          : '$_kenitraTemp1ere')
+                                    : (_kenitraTemp2nde == 0
+                                          ? ''
+                                          : '$_kenitraTemp2nde');
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12.0),
+                        Expanded(
+                          flex: 4,
+                          child: TextFormField(
+                            controller: _kenitraVoyageursController,
+                            decoration: const InputDecoration(
+                              labelText: "Saisir valeur cl",
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
+                            ),
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            validator: (value) =>
+                                (value == null || value.trim().isEmpty)
+                                ? "Requis"
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20.0),
+                    // --- CHAMP BC AUTONOME ---
+                    TextFormField(
+                      controller: _bcGareArriveeController,
+                      decoration: InputDecoration(
+                        labelText: "BC (Nombre de billets contrôlés)",
+                        labelStyle: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Colors.black87,
+                          color: Color(0xFF7D6608),
+                        ),
+                        border: const OutlineInputBorder(),
+                        fillColor: const Color(0xFFFFC400)
+                            .withValues(alpha: 0.05),
+                        filled: true,
+                        prefixIcon: const Icon(
+                          Icons.confirmation_number,
+                          color: Color(0xFFFFC400),
                         ),
                       ),
-                      const SizedBox(height: 8.0),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: DropdownButtonFormField(
-                              initialValue: _classeKenitraSelectionnee,
-                              decoration: const InputDecoration(
-                                labelText: "Classe",
-                                border: OutlineInputBorder(),
-                              ),
-                              items: _classesDisponibles
-                                  .map(
-                                    (String value) => DropdownMenuItem(
-                                      value: value,
-                                      child: Text(value),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (newValue) {
-                                setState(() {
-                                  final int valeurTappee =
-                                      int.tryParse(
-                                        _kenitraVoyageursController.text.trim(),
-                                      ) ??
-                                      0;
-                                  if (_classeKenitraSelectionnee == "1ère") {
-                                    _kenitraTemp1ere = valeurTappee;
-                                  } else {
-                                    _kenitraTemp2nde = valeurTappee;
-                                  }
-                                  _classeKenitraSelectionnee = newValue!;
-                                  _kenitraVoyageursController.text =
-                                      _classeKenitraSelectionnee == "1ère"
-                                      ? (_kenitraTemp1ere == 0
-                                            ? ''
-                                            : '$_kenitraTemp1ere')
-                                      : (_kenitraTemp2nde == 0
-                                            ? ''
-                                            : '$_kenitraTemp2nde');
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12.0),
-                          Expanded(
-                            flex: 4,
-                            child: TextFormField(
-                              controller: _kenitraVoyageursController,
-                              decoration: const InputDecoration(
-                                labelText: "Saisir valeur cl",
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                  ? "Requis"
-                                  : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20.0),
-              Card(
-                elevation: 3,
-                color: Colors.amber.shade50,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                  side: const BorderSide(color: Colors.amber, width: 1.5),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextFormField(
-                    controller: _bcGareArriveeController,
-                    decoration: const InputDecoration(
-                      labelText: "BC (Nombre de billets contrôlés)",
-                      border: OutlineInputBorder(),
-                      fillColor: Colors.white,
-                      filled: true,
-                      prefixIcon: Icon(
-                        Icons.confirmation_number,
-                        color: Colors.amber,
-                      ),
-                    ),
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? "BC obligatoire"
-                        : null,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24.0),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _numTrainController,
-                      decoration: const InputDecoration(
-                        labelText: "N° Train",
-                        border: OutlineInputBorder(),
-                      ),
                       keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 12.0),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _rameController,
-                      decoration: const InputDecoration(
-                        labelText: "N° Rame",
-                        border: OutlineInputBorder(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      keyboardType: TextInputType.number,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? "BC obligatoire"
+                          : null,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 24.0),
+              // --- SÉLECTION DE L'AXE ---
               const Text(
                 "Axe / Destination finale :",
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 8.0),
               Row(
@@ -501,33 +716,56 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                   return ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: estSelectionne
-                          ? Colors.blue.shade800
-                          : Colors.grey.shade300,
+                          ? const Color(0xFF1976D2)
+                          : Colors.white24,
                       foregroundColor: estSelectionne
                           ? Colors.white
-                          : Colors.black87,
+                          : Colors.white,
+                      disabledForegroundColor: Colors.white,
+                      surfaceTintColor: Colors.white,
+                      shadowColor: Colors.black26,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
                     ),
                     onPressed: () =>
                         setState(() => _destinationChoisie = btn["nom"]!),
-                    child: Text(btn["label"]!),
+                    child: Text(
+                      btn["label"]!,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: estSelectionne ? Colors.white : Colors.white,
+                      ),
+                    ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 28.0),
+              const SizedBox(height: 32.0),
+              // --- BOUTON ENREGISTRER ---
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
-                  backgroundColor: const Color(0xFFFFB300),
+                  backgroundColor: const Color(
+                    0xFFFFB300,
+                  ), // Bouton jaune de validation
                   foregroundColor: Colors.black87,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  elevation: 3,
                 ),
-                icon: const Icon(Icons.edit),
+                icon: const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.black87,
+                ),
                 label: Text(
                   _estEnModeModification
                       ? "CONFIRMER LA MODIFICATION"
                       : "ENREGISTRER LE TRAIN",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontSize: 14,
+                    letterSpacing: 0.3,
                   ),
                 ),
                 onPressed: _sauvegarderEtBasculerVersAccueil,
