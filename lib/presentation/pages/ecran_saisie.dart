@@ -288,12 +288,15 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
               // =========================================================================
               // 📦 CONTAINER 1 : IDENTIFICATION TECHNIQUE & BRIGADE DE BORD
               // =========================================================================
+              // =========================================================================
+              // 📦 CONTAINER 1 : IDENTIFICATION TECHNIQUE, HORAIRES & BRIGADE DE BORD
+              // =========================================================================
               Container(
                 margin: const EdgeInsets.only(bottom: 20.0),
                 padding: const EdgeInsets.all(16.0),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  // 🔥 Coins arrondis uniquement sur le bas (bottomLeft et bottomRight)
+                  // Coins arrondis uniquement sur le bas pour une transition fluide
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(24.0),
                     bottomRight: Radius.circular(24.0),
@@ -322,6 +325,8 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                         ),
                       ),
                     ),
+
+                    // --- LIGNE 1 : N° TRAIN & N° RAME ---
                     Row(
                       children: [
                         Expanded(
@@ -358,6 +363,46 @@ class _EcranSaisiePremiumState extends State<EcranSaisiePremium> {
                       ],
                     ),
                     const SizedBox(height: 14.0),
+
+                    // --- ⏰ LIGNE 2 : REINTEGRATION DES HORAIRES (DEPART & ARRIVÉE) ---
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _departController, // Contrôleur d'origine réactivé
+                            decoration: const InputDecoration(
+                              labelText: "Heure Départ",
+                              prefixIcon: Icon(
+                                Icons.access_time_filled,
+                                color: Color(0xFF1976D2),
+                                size: 20,
+                              ),
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.datetime,
+                          ),
+                        ),
+                        const SizedBox(width: 12.0),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _arriveeController, // Contrôleur d'origine réactivé
+                            decoration: const InputDecoration(
+                              labelText: "Heure Arrivée",
+                              prefixIcon: Icon(
+                                Icons.access_time,
+                                color: Color(0xFF1976D2),
+                                size: 20,
+                              ),
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.datetime,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14.0),
+
+                    // --- LIGNE 3 : BRIGADE (NOM & TELEPHONE) ---
                     TextFormField(
                       controller: _nomChefController,
                       decoration: const InputDecoration(
